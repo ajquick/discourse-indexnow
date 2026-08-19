@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-describe "discourse-indexnow plugin" do
+describe ::DiscourseIndexNow do
   before do
     SiteSetting.login_required = false
     SiteSetting.indexnow_enabled = true

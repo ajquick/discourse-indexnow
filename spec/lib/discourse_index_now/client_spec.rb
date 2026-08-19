@@ -14,7 +14,11 @@ describe DiscourseIndexNow::Client do
 
   it "sends a JSON POST payload to the fixed IndexNow endpoint" do
     response = double(status: 200)
-    expect(Excon).to receive(:post).with(
+    allow(Excon).to receive(:post).and_return(response)
+
+    expect(described_class.submit(url)).to eq(success: true, status: 200)
+
+    expect(Excon).to have_received(:post).with(
       described_class::ENDPOINT,
       hash_including(
         headers: hash_including("Content-Type" => "application/json"),
@@ -22,24 +26,26 @@ describe DiscourseIndexNow::Client do
         read_timeout: 10,
         expects: [200],
       ),
-    ).and_return(response)
-
-    expect(described_class.submit(url)).to eq(success: true, status: 200)
+    )
   end
 
   it "treats a 4xx response as a failure" do
     response = double(status: 422)
     error = Excon::Error::UnprocessableEntity.new("Expected [200] <=> Actual: 422")
     allow(error).to receive(:response).and_return(response)
-    expect(Excon).to receive(:post).and_raise(error)
+    allow(Excon).to receive(:post).and_raise(error)
 
     expect(described_class.submit(url)).to eq(success: false, status: 422, error: "HTTP 422")
+
+    expect(Excon).to have_received(:post)
   end
 
   it "converts a timeout into a failure result" do
-    expect(Excon).to receive(:post).and_raise(Excon::Error::Timeout.new("timed out"))
+    allow(Excon).to receive(:post).and_raise(Excon::Error::Timeout.new("timed out"))
 
     expect(described_class.submit(url)).to eq(success: false, error: "timed out")
+
+    expect(Excon).to have_received(:post)
   end
 
   it "builds the keyLocation from the Discourse base URL" do

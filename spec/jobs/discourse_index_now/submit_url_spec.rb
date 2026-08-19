@@ -3,7 +3,7 @@
 require "rails_helper"
 
 describe Jobs::DiscourseIndexNow::SubmitUrl do
-  fab!(:topic) { Fabricate(:topic) }
+  fab!(:topic)
   let(:log) do
     DiscourseIndexNow::SubmissionLog.create!(url: topic.url, status: :pending)
   end
@@ -40,10 +40,11 @@ describe Jobs::DiscourseIndexNow::SubmitUrl do
   it "does not submit when the topic becomes ineligible after enqueueing" do
     topic.category.update!(read_restricted: true)
 
-    expect(DiscourseIndexNow::Client).not_to receive(:submit)
+    allow(DiscourseIndexNow::Client).to receive(:submit)
 
     described_class.new.execute(log_id: log.id, topic_id: topic.id)
 
+    expect(DiscourseIndexNow::Client).not_to have_received(:submit)
     expect(log.reload).to be_failed
     expect(log.error_message).to eq("ineligible_at_execution")
   end
@@ -51,10 +52,11 @@ describe Jobs::DiscourseIndexNow::SubmitUrl do
   it "does not submit when the plugin has been disabled" do
     SiteSetting.indexnow_enabled = false
 
-    expect(DiscourseIndexNow::Client).not_to receive(:submit)
+    allow(DiscourseIndexNow::Client).to receive(:submit)
 
     described_class.new.execute(log_id: log.id, topic_id: topic.id)
 
+    expect(DiscourseIndexNow::Client).not_to have_received(:submit)
     expect(log.reload).to be_failed
     expect(log.error_message).to eq("plugin_disabled")
   end

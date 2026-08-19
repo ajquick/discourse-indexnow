@@ -3,7 +3,7 @@
 require "rails_helper"
 
 describe DiscourseIndexNow::AdminLogsController do
-  fab!(:admin) { Fabricate(:admin) }
+  fab!(:admin)
 
   before { sign_in(admin) }
 

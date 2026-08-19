@@ -3,7 +3,7 @@
 require "rails_helper"
 
 describe DiscourseIndexNow::SubmissionService do
-  fab!(:category) { Fabricate(:category) }
+  fab!(:category)
   fab!(:topic) { Fabricate(:topic, category: category) }
   fab!(:post) { Fabricate(:post, topic: topic) }
 
@@ -13,24 +13,22 @@ describe DiscourseIndexNow::SubmissionService do
     SiteSetting.indexnow_submit_on_create = true
     SiteSetting.indexnow_submit_on_edit = true
     Discourse.redis.del(described_class.debounce_key(topic.url))
+    allow(Jobs).to receive(:enqueue)
   end
 
   it "enqueues a job and creates a pending log for a new first post" do
-    expect(Jobs).to receive(:enqueue).with(
+    described_class.handle_post_created(post)
+
+    expect(Jobs).to have_received(:enqueue).with(
       Jobs::DiscourseIndexNow::SubmitUrl,
       hash_including(topic_id: topic.id),
     )
-
-    described_class.handle_post_created(post)
-
     log = DiscourseIndexNow::SubmissionLog.order(:id).last
     expect(log.url).to eq(topic.url)
     expect(log).to be_pending
   end
 
   it "debounces the same URL for 60 seconds" do
-    allow(Jobs).to receive(:enqueue)
-
     described_class.enqueue(topic)
     described_class.enqueue(topic)
 
@@ -41,15 +39,17 @@ describe DiscourseIndexNow::SubmissionService do
   it "skips a topic in a read-restricted category" do
     category.update!(read_restricted: true)
 
-    expect(Jobs).not_to receive(:enqueue)
+    expect(Jobs).not_to have_received(:enqueue)
     expect(described_class.enqueue(topic)).to be_nil
+    expect(Jobs).not_to have_received(:enqueue)
   end
 
   it "does nothing when the plugin is disabled" do
     SiteSetting.indexnow_enabled = false
 
-    expect(Jobs).not_to receive(:enqueue)
+    expect(Jobs).not_to have_received(:enqueue)
     expect(described_class.handle_post_created(post)).to be_nil
+    expect(Jobs).not_to have_received(:enqueue)
   end
 
   it "marks pending logs as failed when a topic is destroyed" do

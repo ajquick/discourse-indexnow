@@ -3,7 +3,7 @@
 Discourse::Application.routes.append do
   get "/:key.txt" => "discourse_index_now/key#show",
       constraints: {
-        key: /\A[a-f0-9]{32}\z/,
+        key: /[a-f0-9]{32}/,
       }
 
   scope "/admin/plugins/discourse-indexnow",
