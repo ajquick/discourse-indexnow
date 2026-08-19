@@ -1,0 +1,19 @@
+discourse_index_now:
+  indexnow_enabled:
+    default: false
+    client: true
+    validator: "DiscourseIndexNow::EnabledValidator"
+  indexnow_api_key:
+    default: ""
+    client: false
+    validator: "DiscourseIndexNow::ApiKeyValidator"
+  indexnow_submit_on_create:
+    default: true
+    client: false
+  indexnow_submit_on_edit:
+    default: true
+    client: false
+  indexnow_excluded_category_ids:
+    type: category_list
+    default: ""
+    client: false

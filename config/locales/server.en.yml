@@ -1,0 +1,10 @@
+en:
+  site_settings:
+    indexnow_enabled: "Enable IndexNow submissions"
+    indexnow_api_key: "IndexNow API key (32 hexadecimal characters)"
+    indexnow_submit_on_create: "Submit new topics to IndexNow"
+    indexnow_submit_on_edit: "Resubmit edited first posts to IndexNow"
+    indexnow_excluded_category_ids: "Categories that should never be submitted to IndexNow"
+    errors:
+      discourse_index_now_login_required: "IndexNow cannot be enabled while login is required for the whole site."
+      discourse_index_now_invalid_api_key: "The IndexNow API key must be 32 lowercase hexadecimal characters."

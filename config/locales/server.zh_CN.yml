@@ -1,0 +1,10 @@
+zh_CN:
+  site_settings:
+    indexnow_enabled: "启用 IndexNow 自动提交"
+    indexnow_api_key: "IndexNow API key（32 位十六进制字符）"
+    indexnow_submit_on_create: "将新话题提交到 IndexNow"
+    indexnow_submit_on_edit: "首帖编辑后重新提交到 IndexNow"
+    indexnow_excluded_category_ids: "永不提交到 IndexNow 的分类"
+    errors:
+      discourse_index_now_login_required: "整站需要登录访问时无法启用 IndexNow。"
+      discourse_index_now_invalid_api_key: "IndexNow API key 必须是 32 位小写十六进制字符。"

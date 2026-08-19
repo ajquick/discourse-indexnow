@@ -1,0 +1,36 @@
+en:
+  admin_js:
+    admin:
+      site_settings:
+        categories:
+          discourse_index_now: "IndexNow"
+  js:
+    discourse_index_now:
+      admin:
+        title: "IndexNow"
+        enabled: "Enabled"
+        api_key: "API key"
+        today_success: "Today successful submissions"
+        today_failed: "Today failed submissions"
+        generate_key: "Generate key"
+        login_required_disabled: "IndexNow is disabled because the whole site requires login."
+        filter_all: "All"
+        filter_pending: "Pending"
+        filter_success: "Successful"
+        filter_failed: "Failed"
+        search: "Search"
+        url: "URL"
+        status: "Status"
+        response_code: "Response code"
+        error_message: "Error"
+        created_at: "Created"
+        no_logs: "There are no IndexNow submission logs yet."
+        url_placeholder: "Search by URL"
+        status_pending: "Pending"
+        status_success: "Successful"
+        status_failed: "Failed"
+        previous_page: "Previous"
+        next_page: "Next"
+        page_info: "Page %{page} of %{total_pages}"
+        yes: "Yes"
+        no: "No"

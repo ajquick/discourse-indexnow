@@ -1,0 +1,55 @@
+.indexnow-admin {
+  display: grid;
+  gap: 1rem;
+}
+
+.indexnow-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--primary-low);
+  border-radius: 0.5rem;
+
+  code {
+    margin-left: 0.35rem;
+  }
+}
+
+.indexnow-controls,
+.status-filters,
+.url-search,
+.indexnow-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.indexnow-controls {
+  justify-content: space-between;
+}
+
+.indexnow-log-table {
+  width: 100%;
+
+  td,
+  th {
+    padding: 0.5rem;
+    text-align: left;
+    vertical-align: top;
+  }
+}
+
+.indexnow-status-success {
+  color: var(--success);
+}
+
+.indexnow-status-failed {
+  color: var(--danger);
+}
+
+.indexnow-status-pending {
+  color: var(--primary-medium);
+}
