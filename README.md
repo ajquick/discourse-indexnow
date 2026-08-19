@@ -65,13 +65,13 @@ immediately when a topic is created or its first post is edited.
 
 ## Configuration
 
-| Setting | Default | Description |
-| --- | --- | --- |
-| `indexnow_enabled` | `false` | Master switch for the plugin. |
-| `indexnow_api_key` | `""` | 32-character hexadecimal IndexNow key. |
-| `indexnow_submit_on_create` | `true` | Submit when a topic is created. |
-| `indexnow_submit_on_edit` | `true` | Submit when a first post is edited. |
-| `indexnow_excluded_category_ids` | `""` | Extra category denylist on top of automatic privacy filters. |
+| Setting                          | Default | Description                                                  |
+| -------------------------------- | ------- | ------------------------------------------------------------ |
+| `indexnow_enabled`               | `false` | Master switch for the plugin.                                |
+| `indexnow_api_key`               | `""`    | 32-character hexadecimal IndexNow key.                       |
+| `indexnow_submit_on_create`      | `true`  | Submit when a topic is created.                              |
+| `indexnow_submit_on_edit`        | `true`  | Submit when a first post is edited.                          |
+| `indexnow_excluded_category_ids` | `""`    | Extra category denylist on top of automatic privacy filters. |
 
 The plugin cannot be enabled while `login required` is true.
 
@@ -173,13 +173,13 @@ CI uses the official Discourse plugin workflow on every push and pull request.
 
 ### 配置项
 
-| 配置项 | 默认值 | 说明 |
-| --- | --- | --- |
-| `indexnow_enabled` | `false` | 插件总开关。 |
-| `indexnow_api_key` | `""` | 32 位十六进制 IndexNow 密钥。 |
-| `indexnow_submit_on_create` | `true` | 新话题发布时提交。 |
-| `indexnow_submit_on_edit` | `true` | 首帖编辑后重新提交。 |
-| `indexnow_excluded_category_ids` | `""` | 额外排除的分类列表，在自动隐私过滤之外生效。 |
+| 配置项                           | 默认值  | 说明                                         |
+| -------------------------------- | ------- | -------------------------------------------- |
+| `indexnow_enabled`               | `false` | 插件总开关。                                 |
+| `indexnow_api_key`               | `""`    | 32 位十六进制 IndexNow 密钥。                |
+| `indexnow_submit_on_create`      | `true`  | 新话题发布时提交。                           |
+| `indexnow_submit_on_edit`        | `true`  | 首帖编辑后重新提交。                         |
+| `indexnow_excluded_category_ids` | `""`    | 额外排除的分类列表，在自动隐私过滤之外生效。 |
 
 当站点启用 `login_required`（全站必须登录）时，无法开启本插件。
 
