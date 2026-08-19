@@ -5,7 +5,10 @@ require "rails_helper"
 describe DiscourseIndexNow::AdminLogsController, type: :request do
   fab!(:admin)
 
-  before { sign_in(admin) }
+  before do
+    SiteSetting.indexnow_enabled = true
+    sign_in(admin)
+  end
 
   describe "#index" do
     it "returns logs, pagination metadata, and today stats" do

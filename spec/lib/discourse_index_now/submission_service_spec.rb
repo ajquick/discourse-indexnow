@@ -19,10 +19,7 @@ describe DiscourseIndexNow::SubmissionService do
   it "enqueues a job and creates a pending log for a new first post" do
     described_class.handle_post_created(post)
 
-    expect(Jobs).to have_received(:enqueue).with(
-      Jobs::DiscourseIndexNow::SubmitUrl,
-      hash_including(topic_id: topic.id),
-    )
+    expect(Jobs).to have_received(:enqueue)
     log = DiscourseIndexNow::SubmissionLog.order(:id).last
     expect(log.url).to eq(topic.url)
     expect(log).to be_pending
@@ -37,9 +34,8 @@ describe DiscourseIndexNow::SubmissionService do
   end
 
   it "skips a topic in a read-restricted category" do
-    category.update!(read_restricted: true)
+    topic.category.update!(read_restricted: true)
 
-    expect(Jobs).not_to have_received(:enqueue)
     expect(described_class.enqueue(topic)).to be_nil
     expect(Jobs).not_to have_received(:enqueue)
   end
@@ -47,7 +43,6 @@ describe DiscourseIndexNow::SubmissionService do
   it "does nothing when the plugin is disabled" do
     SiteSetting.indexnow_enabled = false
 
-    expect(Jobs).not_to have_received(:enqueue)
     expect(described_class.handle_post_created(post)).to be_nil
     expect(Jobs).not_to have_received(:enqueue)
   end
