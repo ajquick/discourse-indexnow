@@ -16,7 +16,7 @@ describe DiscourseIndexNow::Eligibility do
   end
 
   it "rejects a private message" do
-    topic.update!(archetype: Archetype.private_message)
+    topic.update!(archetype: Archetype.private_message, category_id: nil)
 
     expect(described_class.eligible?(topic)).to eq(false)
   end

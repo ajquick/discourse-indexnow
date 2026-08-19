@@ -7,7 +7,7 @@ module DiscourseIndexNow
       return false if SiteSetting.login_required?
       return false if topic.archetype == Archetype.private_message
       return false if topic.category&.read_restricted
-      return false if topic.unlisted
+      return false unless topic.visible
       return false if topic.deleted_at.present?
       return false if excluded_category_ids.include?(topic.category_id)
 

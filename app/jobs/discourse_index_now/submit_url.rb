@@ -10,7 +10,7 @@ module Jobs
       end
 
       def execute(args)
-        log = DiscourseIndexNow::SubmissionLog.find_by(id: args[:log_id])
+        log = ::DiscourseIndexNow::SubmissionLog.find_by(id: args[:log_id])
         return if log.blank? || log.success?
 
         unless SiteSetting.indexnow_enabled? && SiteSetting.indexnow_api_key.present?
@@ -19,12 +19,12 @@ module Jobs
         end
 
         topic = Topic.find_by(id: args[:topic_id])
-        if topic.blank? || !DiscourseIndexNow::Eligibility.eligible?(topic)
+        if topic.blank? || !::DiscourseIndexNow::Eligibility.eligible?(topic)
           log.update!(status: :failed, error_message: "ineligible_at_execution")
           return
         end
 
-        result = DiscourseIndexNow::Client.submit(log.url)
+        result = ::DiscourseIndexNow::Client.submit(log.url)
         log.update!(
           status: result[:success] ? :success : :failed,
           response_code: result[:status],
@@ -33,7 +33,7 @@ module Jobs
 
         return if result[:success]
 
-        raise DiscourseIndexNow::Client::SubmissionError,
+        raise ::DiscourseIndexNow::Client::SubmissionError,
               (result[:error] || "IndexNow submission failed")
       end
     end

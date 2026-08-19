@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-describe DiscourseIndexNow::AdminLogsController do
+describe DiscourseIndexNow::AdminLogsController, type: :request do
   fab!(:admin)
 
   before { sign_in(admin) }

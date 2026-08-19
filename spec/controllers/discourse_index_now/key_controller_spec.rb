@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-describe DiscourseIndexNow::KeyController do
+describe DiscourseIndexNow::KeyController, type: :request do
   let(:key) { "a" * 32 }
 
   before do

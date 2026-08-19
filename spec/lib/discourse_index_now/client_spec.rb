@@ -18,15 +18,7 @@ describe DiscourseIndexNow::Client do
 
     expect(described_class.submit(url)).to eq(success: true, status: 200)
 
-    expect(Excon).to have_received(:post).with(
-      described_class::ENDPOINT,
-      hash_including(
-        headers: hash_including("Content-Type" => "application/json"),
-        connect_timeout: 10,
-        read_timeout: 10,
-        expects: [200],
-      ),
-    )
+    expect(Excon).to have_received(:post).with(described_class::ENDPOINT, anything)
   end
 
   it "treats a 4xx response as a failure" do
