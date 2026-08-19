@@ -36,15 +36,16 @@ describe DiscourseIndexNow::SubmissionService do
   it "skips a topic in a read-restricted category" do
     topic.category.update!(read_restricted: true)
 
-    expect(described_class.enqueue(topic)).to be_nil
-    expect(Jobs).not_to have_received(:enqueue)
+    expect { described_class.enqueue(topic) }.not_to change(DiscourseIndexNow::SubmissionLog, :count)
   end
 
   it "does nothing when the plugin is disabled" do
     SiteSetting.indexnow_enabled = false
 
-    expect(described_class.handle_post_created(post)).to be_nil
-    expect(Jobs).not_to have_received(:enqueue)
+    expect { described_class.handle_post_created(post) }.not_to change(
+      DiscourseIndexNow::SubmissionLog,
+      :count,
+    )
   end
 
   it "marks pending logs as failed when a topic is destroyed" do
