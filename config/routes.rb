@@ -6,10 +6,16 @@ Discourse::Application.routes.append do
         key: /[a-f0-9]{32}/,
       }
 
+  scope format: false, constraints: ::StaffConstraint.new do
+    get "/admin/plugins/discourse-indexnow/logs" => "discourse_index_now/admin#index"
+  end
+
   scope "/admin/plugins/discourse-indexnow",
         module: "discourse_index_now",
         constraints: ::StaffConstraint.new do
-    get "/logs" => "admin_logs#index", defaults: { format: :json }
-    post "/generate_key" => "admin_logs#generate_key", defaults: { format: :json }
+    get "/logs.json" => "admin_logs#index"
+    post "/generate_key.json" => "admin_logs#generate_key"
+    get "/backfill/preview.json" => "admin_logs#backfill_preview"
+    post "/backfill.json" => "admin_logs#backfill"
   end
 end
