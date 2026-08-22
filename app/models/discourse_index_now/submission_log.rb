@@ -21,7 +21,6 @@ end
 # Table name: indexnow_submission_logs
 #
 #  id            :bigint           not null, primary key
-#  batch_id      :string
 #  batch_index   :integer          default(0), not null
 #  error_message :text
 #  locale        :string(20)
@@ -30,12 +29,13 @@ end
 #  url           :string           not null
 #  created_at    :datetime         not null
 #  updated_at    :datetime         not null
+#  batch_id      :string
 #
 # Indexes
 #
 #  index_indexnow_submission_logs_on_batch_id                  (batch_id)
 #  index_indexnow_submission_logs_on_batch_id_and_batch_index  (batch_id,batch_index)
-#  index_indexnow_submission_logs_on_created_at  (created_at)
-#  index_indexnow_submission_logs_on_status      (status)
-#  index_indexnow_submission_logs_on_url         (url)
+#  index_indexnow_submission_logs_on_created_at                (created_at)
+#  index_indexnow_submission_logs_on_status                    (status)
+#  index_indexnow_submission_logs_on_url                       (url)
 #
