@@ -14,6 +14,14 @@ module DiscourseIndexNow
       true
     end
 
+    # Locale variants share the topic and category visibility rules. Keeping
+    # this method separate leaves room for locale-specific exclusions later.
+    def self.eligible_locales(topic, locales)
+      return [] unless eligible?(topic)
+
+      locales.to_a.compact.uniq
+    end
+
     def self.excluded_category_ids
       SiteSetting
         .indexnow_excluded_category_ids

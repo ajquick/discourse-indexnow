@@ -11,6 +11,8 @@ module DiscourseIndexNow
     }
 
     validates :url, presence: true
+    validates :batch_index, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
+    validates :locale, length: { maximum: 20 }, allow_nil: true
   end
 end
 
@@ -19,7 +21,10 @@ end
 # Table name: indexnow_submission_logs
 #
 #  id            :bigint           not null, primary key
+#  batch_id      :string
+#  batch_index   :integer          default(0), not null
 #  error_message :text
+#  locale        :string(20)
 #  response_code :integer
 #  status        :integer          default("pending"), not null
 #  url           :string           not null
@@ -28,6 +33,8 @@ end
 #
 # Indexes
 #
+#  index_indexnow_submission_logs_on_batch_id                  (batch_id)
+#  index_indexnow_submission_logs_on_batch_id_and_batch_index  (batch_id,batch_index)
 #  index_indexnow_submission_logs_on_created_at  (created_at)
 #  index_indexnow_submission_logs_on_status      (status)
 #  index_indexnow_submission_logs_on_url         (url)

@@ -15,6 +15,21 @@ describe DiscourseIndexNow::SubmissionLog do
     expect(log).to be_failed
   end
 
+  it "stores batch metadata and the locale for each URL" do
+    log =
+      described_class.create!(
+        url: "https://forum.example.com/t/hello/1?tl=es",
+        batch_id: "batch-1",
+        batch_index: 2,
+        locale: "es",
+        status: :pending,
+      )
+
+    expect(log.batch_id).to eq("batch-1")
+    expect(log.batch_index).to eq(2)
+    expect(log.locale).to eq("es")
+  end
+
   it "requires a URL" do
     log = described_class.new
 

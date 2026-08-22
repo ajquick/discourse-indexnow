@@ -15,6 +15,18 @@ describe DiscourseIndexNow::Eligibility do
     expect(described_class.eligible?(topic)).to eq(true)
   end
 
+  it "allows all locales for an eligible topic" do
+    expect(described_class.eligible_locales(topic, ["es", "es", "zh_CN", nil])).to eq(
+      %w[es zh_CN],
+    )
+  end
+
+  it "rejects every locale for an ineligible topic" do
+    SiteSetting.login_required = true
+
+    expect(described_class.eligible_locales(topic, %w[es zh_CN])).to eq([])
+  end
+
   it "rejects a private message" do
     topic.update!(archetype: Archetype.private_message, category_id: nil)
 
