@@ -4,7 +4,12 @@ require "rails_helper"
 
 describe DiscourseIndexNow::Client do
   let(:key) { "a" * 32 }
-  let(:url) { "https://forum.example.com/t/hello/1" }
+  let(:urls) do
+    [
+      "https://forum.example.com/t/hello/1",
+      "https://forum.example.com/t/hello/1?tl=es",
+    ]
+  end
 
   before do
     SiteSetting.indexnow_api_key = key
@@ -12,40 +17,58 @@ describe DiscourseIndexNow::Client do
     allow(Discourse).to receive(:current_hostname).and_return("forum.example.com")
   end
 
-  it "sends a JSON POST payload to the fixed IndexNow endpoint" do
-    response = double(status: 200)
+  it "submits a batch as JSON" do
+    response = double(status: 202)
     allow(Excon).to receive(:post).and_return(response)
 
-    expect(described_class.submit(url)).to eq(success: true, status: 200)
-
+    expect(described_class.submit_batch(urls)).to eq(success: true, status: 202)
     expect(Excon).to have_received(:post)
   end
 
-  it "treats a 4xx response as a failure" do
+  it "builds the keyLocation and urlList for a batch" do
+    payload = JSON.parse(described_class.payload(urls).to_json)
+
+    expect(payload["host"]).to eq("forum.example.com")
+    expect(payload["key"]).to eq(key)
+    expect(payload["keyLocation"]).to eq("https://forum.example.com/#{key}.txt")
+    expect(payload["urlList"]).to eq(urls)
+  end
+
+  it "treats non-success HTTP responses as failures" do
     response = double(status: 422)
-    error = Excon::Error::UnprocessableEntity.new("Expected [200] <=> Actual: 422")
+    error = Excon::Error::UnprocessableEntity.new("Expected [200, 202] <=> Actual: 422")
     allow(error).to receive(:response).and_return(response)
     allow(Excon).to receive(:post).and_raise(error)
 
-    expect(described_class.submit(url)).to eq(success: false, status: 422, error: "HTTP 422")
+    expect(described_class.submit_batch(urls)).to eq(
+      success: false,
+      status: 422,
+      error: "HTTP 422",
+    )
+  end
 
-    expect(Excon).to have_received(:post)
+  it "returns Retry-After for a 429 response" do
+    response = double(status: 429, headers: { "Retry-After" => "120" })
+    error = Excon::Error::TooManyRequests.new("Expected [200, 202] <=> Actual: 429")
+    allow(error).to receive(:response).and_return(response)
+    allow(Excon).to receive(:post).and_raise(error)
+
+    expect(described_class.submit_batch(urls)).to eq(
+      success: false,
+      status: 429,
+      error: "HTTP 429",
+      retry_after: 120,
+    )
+  end
+
+  it "rejects batches larger than the IndexNow limit" do
+    expect { described_class.submit_batch(Array.new(10_001) { |i| "https://example.com/#{i}" }) }
+      .to raise_error(DiscourseIndexNow::Client::SubmissionError)
   end
 
   it "converts a timeout into a failure result" do
     allow(Excon).to receive(:post).and_raise(Excon::Error::Timeout.new("timed out"))
 
-    expect(described_class.submit(url)).to eq(success: false, error: "timed out")
-
-    expect(Excon).to have_received(:post)
-  end
-
-  it "builds the keyLocation from the Discourse base URL" do
-    payload = JSON.parse(described_class.payload(url).to_json)
-
-    expect(payload["host"]).to eq("forum.example.com")
-    expect(payload["key"]).to eq(key)
-    expect(payload["keyLocation"]).to eq("https://forum.example.com/#{key}.txt")
-    expect(payload["urlList"]).to eq([url])
+    expect(described_class.submit_batch(urls)).to eq(success: false, error: "timed out")
   end
 end

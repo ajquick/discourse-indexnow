@@ -17,3 +17,9 @@ discourse_index_now:
     type: category_list
     default: ""
     client: false
+  indexnow_hourly_limit:
+    default: 200
+    client: false
+  indexnow_daily_limit:
+    default: 10000
+    client: false
