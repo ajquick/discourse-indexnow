@@ -2,8 +2,9 @@
 
 # name: discourse-indexnow
 # about: Automatically submit new and edited topic URLs to IndexNow-compatible search engines.
-# version: 0.1.0
-# authors: Discourse IndexNow contributors
+# version: 0.2.0
+# authors: sitetalk.net
+# url: https://github.com/imlotso/discourse-indexnow
 
 enabled_site_setting :indexnow_enabled
 
