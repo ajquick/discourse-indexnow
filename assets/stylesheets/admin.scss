@@ -20,11 +20,131 @@
 .indexnow-controls,
 .status-filters,
 .url-search,
-.indexnow-pagination {
+.indexnow-pagination,
+.indexnow-backfill-controls,
+.indexnow-chart-legend {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
+}
+
+.indexnow-charts {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr);
+  gap: 1rem;
+
+  @media (max-width: 700px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.indexnow-chart,
+.indexnow-backfill {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--primary-low);
+  border-radius: 0.5rem;
+}
+
+.indexnow-chart svg {
+  display: block;
+  width: 100%;
+  height: 120px;
+}
+
+.indexnow-chart h3,
+.indexnow-backfill h3 {
+  margin: 0 0 0.5rem;
+  font-size: var(--font-down-1);
+}
+
+.indexnow-bar-success {
+  fill: var(--success);
+  background: var(--success);
+}
+
+.indexnow-bar-failed {
+  fill: var(--danger);
+  background: var(--danger);
+}
+
+.indexnow-chart-legend {
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  font-size: var(--font-down-1);
+
+  span {
+    display: inline-block;
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 50%;
+  }
+}
+
+.indexnow-failure-row {
+  display: grid;
+  grid-template-columns: 8rem 6rem 1fr;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+  font-size: var(--font-down-1);
+}
+
+.indexnow-failure-count {
+  text-align: right;
+}
+
+.indexnow-failure-track {
+  width: 100%;
+  height: 0.5rem;
+  background: var(--primary-low);
+  border-radius: 0.25rem;
+}
+
+.indexnow-failure-bar {
+  display: block;
+  height: 100%;
+  background: var(--danger);
+  border-radius: 0.25rem;
+}
+
+.indexnow-key-status {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.indexnow-key-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+}
+
+.indexnow-key-accessible {
+  background: var(--success);
+}
+
+.indexnow-key-unavailable {
+  background: var(--danger);
+}
+
+.indexnow-backfill {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.indexnow-backfill select,
+.indexnow-backfill input {
+  padding: 0.35rem;
+  border: 1px solid var(--primary-low);
+  border-radius: 0.25rem;
+  background: var(--secondary);
+  color: var(--primary);
+}
+
+.indexnow-backfill-result {
+  font-size: var(--font-down-1);
+  color: var(--primary-high);
 }
 
 .indexnow-controls {

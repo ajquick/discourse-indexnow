@@ -1,4 +1,4 @@
-import { fn } from "@ember/helper";
+import { on } from "@ember/modifier";
 import DButton from "discourse/ui-kit/d-button";
 import DConditionalLoadingSpinner from "discourse/ui-kit/d-conditional-loading-spinner";
 import DTextField from "discourse/ui-kit/d-text-field";
@@ -28,6 +28,16 @@ export default <template>
         <code>{{@controller.stats.api_key}}</code>
       </div>
 
+      <div class="indexnow-key-status">
+        <strong>{{i18n "discourse_index_now.admin.key_accessible"}}:</strong>
+        <span class="indexnow-key-dot indexnow-key-{{if @controller.stats.key_accessible "accessible" "unavailable"}}"></span>
+        {{#if @controller.stats.key_accessible}}
+          {{i18n "discourse_index_now.admin.yes"}}
+        {{else}}
+          {{i18n "discourse_index_now.admin.no"}}
+        {{/if}}
+      </div>
+
       <div>
         <strong>{{i18n "discourse_index_now.admin.today_success"}}:</strong>
         {{@controller.stats.today_success_count}}
@@ -45,23 +55,112 @@ export default <template>
       />
     </section>
 
+    <section class="indexnow-charts">
+      <div class="indexnow-chart">
+        <h3>{{i18n "discourse_index_now.admin.trend_7d"}}</h3>
+        <svg viewBox="0 0 260 104" role="img" aria-label={{i18n "discourse_index_now.admin.trend_7d"}}>
+          {{#each @controller.trendBars as |day|}}
+            <rect x={{day.x}} y={{day.successY}} width="8" height={{day.successHeight}} class="indexnow-bar-success" />
+            <rect x={{day.failedX}} y={{day.failedY}} width="8" height={{day.failedHeight}} class="indexnow-bar-failed" />
+            <text x={{day.labelX}} y="98" text-anchor="middle">{{day.short_date}}</text>
+          {{/each}}
+        </svg>
+        <div class="indexnow-chart-legend">
+          <span class="indexnow-bar-success"></span>
+          {{i18n "discourse_index_now.admin.status_success"}}
+          <span class="indexnow-bar-failed"></span>
+          {{i18n "discourse_index_now.admin.status_failed"}}
+        </div>
+      </div>
+
+      <div class="indexnow-chart">
+        <h3>{{i18n "discourse_index_now.admin.failure_breakdown"}}</h3>
+        {{#each @controller.failureBars as |failure|}}
+          <div class="indexnow-failure-row">
+            <span>{{failure.label}}</span>
+            <span class="indexnow-failure-count">{{failure.count}} ({{failure.percentage}}%)</span>
+            <div class="indexnow-failure-track">
+              <span class="indexnow-failure-bar" style={{failure.style}}></span>
+            </div>
+          </div>
+        {{/each}}
+      </div>
+    </section>
+
+    <section class="indexnow-backfill">
+      <h3>{{i18n "discourse_index_now.admin.backfill"}}</h3>
+      <div class="indexnow-backfill-controls">
+        <select {{on "change" @controller.setBackfillCategory}}>
+          <option value="">{{i18n "discourse_index_now.admin.all_categories"}}</option>
+          {{#each @controller.stats.categories as |category|}}
+            <option value={{category.id}} selected={{category.selected}}>
+              {{category.name}}
+            </option>
+          {{/each}}
+        </select>
+
+        <input
+          type="date"
+          value={{@controller.backfillSince}}
+          {{on "input" @controller.setBackfillSince}}
+        />
+        <input
+          type="date"
+          value={{@controller.backfillUntil}}
+          {{on "input" @controller.setBackfillUntil}}
+        />
+
+        <DButton
+          @label="discourse_index_now.admin.preview"
+          @action={{@controller.previewBackfill}}
+          @disabled={{@controller.backfillLoading}}
+        />
+        <DButton
+          @label="discourse_index_now.admin.submit_backfill"
+          @action={{@controller.submitBackfill}}
+          @disabled={{@controller.backfillLoading}}
+        />
+      </div>
+
+      {{#if @controller.backfillPreview}}
+        <div class="indexnow-backfill-result">
+          {{i18n
+            "discourse_index_now.admin.backfill_preview"
+            topics=@controller.backfillPreview.matched_topics
+            urls=@controller.backfillPreview.url_count
+          }}
+        </div>
+      {{/if}}
+
+      {{#if @controller.backfillResult}}
+        <div class="indexnow-backfill-result">
+          {{i18n
+            "discourse_index_now.admin.backfill_result"
+            topics=@controller.backfillResult.matched_topics
+            urls=@controller.backfillResult.submitted_urls
+            batch_id=@controller.backfillResult.batch_id
+          }}
+        </div>
+      {{/if}}
+    </section>
+
     <section class="indexnow-controls">
       <div class="status-filters">
         <DButton
           @label="discourse_index_now.admin.filter_all"
-          @action={{fn @controller.setStatus ""}}
+          @action={{@controller.filterAll}}
         />
         <DButton
           @label="discourse_index_now.admin.filter_pending"
-          @action={{fn @controller.setStatus "pending"}}
+          @action={{@controller.filterPending}}
         />
         <DButton
           @label="discourse_index_now.admin.filter_success"
-          @action={{fn @controller.setStatus "success"}}
+          @action={{@controller.filterSuccess}}
         />
         <DButton
           @label="discourse_index_now.admin.filter_failed"
-          @action={{fn @controller.setStatus "failed"}}
+          @action={{@controller.filterFailed}}
         />
       </div>
 
@@ -71,6 +170,11 @@ export default <template>
           @placeholderKey="discourse_index_now.admin.url_placeholder"
           @onChange={{@controller.updateUrl}}
         />
+        <DTextField
+          @value={{@controller.batchId}}
+          @placeholderKey="discourse_index_now.admin.batch_placeholder"
+          @onChange={{@controller.updateBatchId}}
+        />
         <DButton
           @label="discourse_index_now.admin.search"
           @action={{@controller.search}}
@@ -79,30 +183,34 @@ export default <template>
       </div>
     </section>
 
-      <DConditionalLoadingSpinner @condition={{@controller.loading}} />
+    <DConditionalLoadingSpinner @condition={{@controller.loading}} />
 
     <table class="d-admin-table indexnow-log-table">
       <thead>
         <tr>
           <th>{{i18n "discourse_index_now.admin.url"}}</th>
+          <th>{{i18n "discourse_index_now.admin.locale"}}</th>
           <th>{{i18n "discourse_index_now.admin.status"}}</th>
           <th>{{i18n "discourse_index_now.admin.response_code"}}</th>
           <th>{{i18n "discourse_index_now.admin.error_message"}}</th>
+          <th>{{i18n "discourse_index_now.admin.batch"}}</th>
           <th>{{i18n "discourse_index_now.admin.created_at"}}</th>
         </tr>
       </thead>
       <tbody>
-        {{#each @controller.logs as |log|}}
+        {{#each @controller.logs as |entry|}}
           <tr>
-            <td>{{log.url}}</td>
-            <td class="indexnow-status-{{log.status}}">{{log.status_label}}</td>
-            <td>{{log.response_code}}</td>
-            <td>{{log.error_message}}</td>
-            <td>{{dAgeWithTooltip log.created_at}}</td>
+            <td>{{entry.url}}</td>
+            <td>{{if entry.locale entry.locale "-"}}</td>
+            <td class="indexnow-status-{{entry.status}}">{{entry.status_label}}</td>
+            <td>{{entry.response_code}}</td>
+            <td>{{entry.error_message}}</td>
+            <td><code>{{entry.batch_id}}</code></td>
+            <td>{{dAgeWithTooltip entry.created_at}}</td>
           </tr>
         {{else}}
           <tr>
-            <td colspan="5">{{i18n "discourse_index_now.admin.no_logs"}}</td>
+            <td colspan="7">{{i18n "discourse_index_now.admin.no_logs"}}</td>
           </tr>
         {{/each}}
       </tbody>

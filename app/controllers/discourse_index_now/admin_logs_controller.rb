@@ -13,6 +13,7 @@ module DiscourseIndexNow
       scope = SubmissionLog.order(created_at: :desc)
       scope = scope.where(status: status_value) unless status_value.nil?
       scope = scope.where("url ILIKE ?", "%#{url_filter}%") if url_filter.present?
+      scope = scope.where(batch_id: batch_id_filter) if batch_id_filter.present?
 
       total_count = scope.count
       logs = scope.limit(per_page).offset((page - 1) * per_page)
@@ -46,6 +47,29 @@ module DiscourseIndexNow
              }
     end
 
+    def backfill_preview
+      topics = backfill_topics
+      entries = topics.flat_map { |topic| UrlBuilder.build_urls(topic) }
+
+      render json: {
+               matched_topics: topics.size,
+               url_count: entries.size,
+               urls: entries.first(100).map { |entry| entry[:url] },
+             }
+    end
+
+    def backfill
+      topics = backfill_topics
+      entries = topics.flat_map { |topic| UrlBuilder.build_urls(topic) }
+      result = SubmissionService.enqueue_batch(entries, source: "backfill")
+
+      render json: {
+               matched_topics: topics.size,
+               submitted_urls: result[:submitted_count],
+               batch_id: result[:batch_id],
+             }
+    end
+
     private
 
     def status_value
@@ -59,10 +83,17 @@ module DiscourseIndexNow
       params[:url].to_s.strip
     end
 
+    def batch_id_filter
+      params[:batch_id].to_s.strip
+    end
+
     def serialize_log(log)
       {
         id: log.id,
         url: log.url,
+        batch_id: log.batch_id,
+        batch_index: log.batch_index,
+        locale: log.locale,
         status: log.status,
         response_code: log.response_code,
         error_message: log.error_message,
@@ -73,13 +104,90 @@ module DiscourseIndexNow
 
     def stats
       today = Time.zone.now.beginning_of_day
+      failures = SubmissionLog.where(status: :failed).where("created_at >= ?", 7.days.ago)
+      failure_breakdown = build_failure_breakdown(failures)
+
       {
         enabled: SiteSetting.indexnow_enabled?,
         login_required: SiteSetting.login_required?,
         api_key: SiteSetting.indexnow_api_key,
+        key_accessible: KeyAccessibility.check(SiteSetting.indexnow_api_key),
         today_success_count: SubmissionLog.where(status: :success).where("created_at >= ?", today).count,
         today_failed_count: SubmissionLog.where(status: :failed).where("created_at >= ?", today).count,
+        trend_7d: trend_7d,
+        failure_breakdown: failure_breakdown,
+        categories: Category.order(:name).pluck(:id, :name).map { |id, name| { id: id, name: name } },
       }
+    end
+
+    def trend_7d
+      6.downto(0).map do |days|
+        day = Time.zone.now.to_date - days
+        {
+          date: day.to_s,
+          success: SubmissionLog
+            .where(status: :success)
+            .where("created_at >= ? AND created_at < ?", day.beginning_of_day, day + 1.day)
+            .count,
+          failed: SubmissionLog
+            .where(status: :failed)
+            .where("created_at >= ? AND created_at < ?", day.beginning_of_day, day + 1.day)
+            .count,
+        }
+      end
+    end
+
+    def build_failure_breakdown(failures)
+      messages = failures.pluck(:error_message, :response_code)
+      total = messages.size
+
+      counts = messages.each_with_object(Hash.new(0)) do |(message, response_code), result|
+        result[classify_failure(message, response_code)] += 1
+      end
+
+      %i[rate_limit key_error domain_mismatch other].map do |category|
+        count = counts[category]
+        {
+          category: category,
+          count: count,
+          percentage: total.zero? ? 0 : (count * 100.0 / total).round(1),
+        }
+      end
+    end
+
+    def classify_failure(message, response_code)
+      text = "#{message} #{response_code}".downcase
+      return :rate_limit if text.include?("429") || text.include?("rate_limit")
+      return :key_error if text.include?("403") || text.include?("key")
+      return :domain_mismatch if text.include?("422") || text.include?("domain")
+
+      :other
+    end
+
+    def backfill_topics
+      return Topic.none if SiteSetting.login_required?
+
+      scope =
+        Topic
+          .joins(:category)
+          .where(
+            archetype: Archetype.default,
+            deleted_at: nil,
+            visible: true,
+          )
+          .where(categories: { read_restricted: false })
+          .where.not(category_id: Eligibility.excluded_category_ids)
+
+      scope = scope.where(category_id: params[:category_id]) if params[:category_id].present?
+      scope = scope.where("topics.created_at >= ?", parsed_date(:since)) if params[:since].present?
+      scope = scope.where("topics.created_at <= ?", parsed_date(:until).end_of_day) if params[:until].present?
+      scope.order(:id)
+    end
+
+    def parsed_date(name)
+      Date.parse(params[name])
+    rescue ArgumentError, TypeError
+      raise Discourse::InvalidParameters.new(name)
     end
   end
 end
