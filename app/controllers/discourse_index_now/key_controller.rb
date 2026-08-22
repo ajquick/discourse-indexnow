@@ -9,16 +9,34 @@ module DiscourseIndexNow
     before_action :rate_limit
 
     def show
+      request_key = params[:key].to_s
       key = SiteSetting.indexnow_api_key
 
-      if key.present? && ActiveSupport::SecurityUtils.secure_compare(params[:key].to_s, key)
-        render plain: key, content_type: "text/plain"
+      if valid_key?(request_key, key)
+        render plain: request_key, content_type: "text/plain"
       else
         render plain: "", status: :not_found
       end
     end
 
     private
+
+    def valid_key?(request_key, current_key)
+      return false if request_key.blank?
+
+      if current_key.present? &&
+           ActiveSupport::SecurityUtils.secure_compare(request_key, current_key)
+        return true
+      end
+
+      previous_key = PluginStore.get(DiscourseIndexNow::PLUGIN_NAME, "previous_api_key")
+      expires_at = PluginStore.get(DiscourseIndexNow::PLUGIN_NAME, "previous_key_expires_at")
+
+      previous_key.present? &&
+        expires_at.present? &&
+        Time.zone.parse(expires_at.to_s).future? &&
+        ActiveSupport::SecurityUtils.secure_compare(request_key, previous_key)
+    end
 
     def rate_limit
       RateLimiter.new(nil, "indexnow-key-#{request.remote_ip}", 100, 60.seconds).performed!

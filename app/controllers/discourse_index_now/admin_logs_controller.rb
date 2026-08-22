@@ -30,6 +30,16 @@ module DiscourseIndexNow
     end
 
     def generate_key
+      previous_key = SiteSetting.indexnow_api_key
+      if previous_key.present?
+        PluginStore.set(DiscourseIndexNow::PLUGIN_NAME, "previous_api_key", previous_key)
+        PluginStore.set(
+          DiscourseIndexNow::PLUGIN_NAME,
+          "previous_key_expires_at",
+          (Time.zone.now + 7.days).iso8601,
+        )
+      end
+
       SiteSetting.indexnow_api_key = SecureRandom.hex(16)
       render json: {
                api_key: SiteSetting.indexnow_api_key,
