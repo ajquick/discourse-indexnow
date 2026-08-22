@@ -8,6 +8,7 @@ en:
     discourse_index_now:
       admin:
         title: "IndexNow"
+        logs: "Logs"
         enabled: "Enabled"
         api_key: "API key"
         today_success: "Today successful submissions"
@@ -32,5 +33,5 @@ en:
         previous_page: "Previous"
         next_page: "Next"
         page_info: "Page %{page} of %{total_pages}"
-        yes: "Yes"
-        no: "No"
+        "yes": "Yes"
+        "no": "No"

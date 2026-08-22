@@ -15,7 +15,9 @@ end
 
 require_relative "lib/discourse_index_now/validators"
 
-add_admin_route "discourse_index_now.admin.title", "discourse-indexnow"
+add_admin_route "discourse_index_now.admin.title",
+                "discourse-indexnow",
+                use_new_show_route: true
 
 after_initialize do
   require_relative "app/controllers/discourse_index_now/key_controller"

@@ -7,7 +7,7 @@ import { i18n } from "discourse-i18n";
 
 const PER_PAGE = 50;
 
-export default class AdminPluginsDiscourseIndexNowIndexController extends Controller {
+export default class AdminPluginsShowDiscourseIndexNowController extends Controller {
   @tracked data = null;
   @tracked status = "";
   @tracked url = "";

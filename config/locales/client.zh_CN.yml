@@ -8,6 +8,7 @@ zh_CN:
     discourse_index_now:
       admin:
         title: "IndexNow"
+        logs: "日志"
         enabled: "已启用"
         api_key: "API key"
         today_success: "今日提交成功"
@@ -32,5 +33,5 @@ zh_CN:
         previous_page: "上一页"
         next_page: "下一页"
         page_info: "第 %{page} / %{total_pages} 页"
-        yes: "是"
-        no: "否"
+        "yes": "是"
+        "no": "否"
