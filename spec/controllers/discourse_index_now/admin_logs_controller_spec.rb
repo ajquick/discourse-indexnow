@@ -144,7 +144,7 @@ describe DiscourseIndexNow::AdminLogsController, type: :request do
 
   describe "#backfill" do
     it "submits the selected URLs through the generic batch service" do
-      expect(DiscourseIndexNow::SubmissionService).to receive(:enqueue_batch).with(
+      allow(DiscourseIndexNow::SubmissionService).to receive(:enqueue_batch).with(
         [{ url: topic.url, locale: nil }],
         source: "backfill",
       ).and_return(
@@ -166,6 +166,10 @@ describe DiscourseIndexNow::AdminLogsController, type: :request do
       expect(json["matched_topics"]).to eq(1)
       expect(json["submitted_urls"]).to eq(1)
       expect(json["batch_id"]).to eq("batch-1")
+      expect(DiscourseIndexNow::SubmissionService).to have_received(:enqueue_batch).with(
+        [{ url: topic.url, locale: nil }],
+        source: "backfill",
+      )
     end
   end
 end

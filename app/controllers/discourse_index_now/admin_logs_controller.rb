@@ -37,7 +37,7 @@ module DiscourseIndexNow
         PluginStore.set(
           DiscourseIndexNow::PLUGIN_NAME,
           "previous_key_expires_at",
-          (Time.zone.now + 7.days).iso8601,
+          7.days.from_now.iso8601,
         )
       end
 
