@@ -18,6 +18,7 @@ Automatically submit Discourse topic URLs to the [IndexNow](https://www.indexnow
 - Re-submit or exclude content when topics move, categories change visibility, or tags update.
 - Track batch IDs, locales, a seven-day success trend, and categorized failure reasons.
 - Preview and submit historical topics by category and date range from the admin panel.
+- Submit manually chosen URLs from the admin panel, one per line.
 - Keep all submissions asynchronous and privacy-aware.
 - Provide English and Simplified Chinese admin interfaces.
 
@@ -70,6 +71,11 @@ Automatically submit Discourse topic URLs to the [IndexNow](https://www.indexnow
 
 The plugin cannot be enabled while `login required` is true, and it automatically disables itself if that setting is turned on later.
 
+Automatic `submit on create` and `submit on edit` settings cover new and edited topics. Historical backfill and manual submission are separate admin actions:
+
+- **Historical backfill:** filter topics by category and date range, preview the match, then submit the eligible historical topics in batches.
+- **Manual submission:** paste one on-site URL per line and submit the selected URLs immediately. External URLs and ineligible topic URLs are filtered out automatically.
+
 ## Localized URLs
 
 When Discourse Content Localization is enabled and crawler locale URLs are available, the plugin builds one main URL plus one URL for every localization that actually exists on the topic. It uses Discourse's configured locale query parameter, normally `?tl=es`, rather than assuming a fixed parameter name.
@@ -94,6 +100,7 @@ The panel under **Admin > Plugins > discourse-indexnow** includes:
 - A seven-day success and failure trend.
 - Failure breakdowns for rate limits, key errors, domain mismatches, and other errors.
 - Historical backfill preview and submission by category and date range.
+- Manual URL submission with one URL per line.
 - Batch-aware logs with URL, locale, status, response code, and error filters.
 - Pagination and one-click key generation.
 

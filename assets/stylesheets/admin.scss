@@ -40,7 +40,8 @@
 }
 
 .indexnow-chart,
-.indexnow-backfill {
+.indexnow-backfill,
+.indexnow-manual {
   padding: 0.75rem 1rem;
   border: 1px solid var(--primary-low);
   border-radius: 0.5rem;
@@ -53,7 +54,8 @@
 }
 
 .indexnow-chart h3,
-.indexnow-backfill h3 {
+.indexnow-backfill h3,
+.indexnow-manual h3 {
   margin: 0 0 0.5rem;
   font-size: var(--font-down-1);
 }
@@ -133,6 +135,11 @@
   gap: 0.75rem;
 }
 
+.indexnow-manual {
+  display: grid;
+  gap: 0.75rem;
+}
+
 .indexnow-backfill select,
 .indexnow-backfill input {
   padding: 0.35rem;
@@ -143,6 +150,26 @@
 }
 
 .indexnow-backfill-result {
+  font-size: var(--font-down-1);
+  color: var(--primary-high);
+}
+
+.indexnow-manual textarea {
+  width: 100%;
+  min-height: 6rem;
+  padding: 0.5rem;
+  border: 1px solid var(--primary-low);
+  border-radius: 0.25rem;
+  background: var(--secondary);
+  color: var(--primary);
+}
+
+.indexnow-manual-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.indexnow-manual-result {
   font-size: var(--font-down-1);
   color: var(--primary-high);
 }

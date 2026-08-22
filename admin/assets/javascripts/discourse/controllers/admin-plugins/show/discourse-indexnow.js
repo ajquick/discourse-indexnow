@@ -21,6 +21,9 @@ export default class AdminPluginsShowDiscourseIndexNowController extends Control
   @tracked backfillPreview = null;
   @tracked backfillResult = null;
   @tracked backfillLoading = false;
+  @tracked manualUrls = "";
+  @tracked manualResult = null;
+  @tracked manualLoading = false;
 
   get logs() {
     return (this.data?.logs || []).map((log) => ({
@@ -278,6 +281,33 @@ export default class AdminPluginsShowDiscourseIndexNowController extends Control
       popupAjaxError(error);
     } finally {
       this.backfillLoading = false;
+    }
+  }
+
+  @action
+  updateManualUrls(event) {
+    this.manualUrls = event.target.value;
+  }
+
+  @action
+  async submitManualUrls() {
+    this.manualLoading = true;
+
+    try {
+      this.manualResult = await ajax(
+        "/admin/plugins/discourse-indexnow/submit_urls.json",
+        {
+          type: "POST",
+          data: { urls: this.manualUrls },
+        }
+      );
+      this.batchId = this.manualResult.batch_id;
+      this.page = 1;
+      await this.load();
+    } catch (error) {
+      popupAjaxError(error);
+    } finally {
+      this.manualLoading = false;
     }
   }
 }

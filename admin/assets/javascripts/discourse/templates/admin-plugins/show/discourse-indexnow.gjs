@@ -1,6 +1,7 @@
 import { on } from "@ember/modifier";
 import DButton from "discourse/ui-kit/d-button";
 import DConditionalLoadingSpinner from "discourse/ui-kit/d-conditional-loading-spinner";
+import DExpandingTextArea from "discourse/ui-kit/d-expanding-text-area";
 import DTextField from "discourse/ui-kit/d-text-field";
 import dAgeWithTooltip from "discourse/ui-kit/helpers/d-age-with-tooltip";
 import { i18n } from "discourse-i18n";
@@ -139,6 +140,32 @@ export default <template>
             topics=@controller.backfillResult.matched_topics
             urls=@controller.backfillResult.submitted_urls
             batch_id=@controller.backfillResult.batch_id
+          }}
+        </div>
+      {{/if}}
+    </section>
+
+    <section class="indexnow-manual">
+      <h3>{{i18n "discourse_index_now.admin.manual_submission"}}</h3>
+      <DExpandingTextArea
+        @value={{@controller.manualUrls}}
+        @input={{@controller.updateManualUrls}}
+        placeholder={{i18n "discourse_index_now.admin.manual_urls_placeholder"}}
+        rows="4"
+      />
+      <div class="indexnow-manual-controls">
+        <DButton
+          @label="discourse_index_now.admin.submit_manual"
+          @action={{@controller.submitManualUrls}}
+          @disabled={{@controller.manualLoading}}
+        />
+      </div>
+      {{#if @controller.manualResult}}
+        <div class="indexnow-manual-result">
+          {{i18n
+            "discourse_index_now.admin.manual_result"
+            urls=@controller.manualResult.submitted_urls
+            batch_id=@controller.manualResult.batch_id
           }}
         </div>
       {{/if}}

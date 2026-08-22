@@ -17,5 +17,6 @@ Discourse::Application.routes.append do
     post "/generate_key.json" => "admin_logs#generate_key"
     get "/backfill/preview.json" => "admin_logs#backfill_preview"
     post "/backfill.json" => "admin_logs#backfill"
+    post "/submit_urls.json" => "admin_logs#submit_urls"
   end
 end

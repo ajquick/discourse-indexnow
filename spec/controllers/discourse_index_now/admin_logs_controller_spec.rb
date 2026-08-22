@@ -172,4 +172,109 @@ describe DiscourseIndexNow::AdminLogsController, type: :request do
       )
     end
   end
+
+  describe "#submit_urls" do
+    it "submits valid on-site topic URLs through the generic batch service" do
+      allow(DiscourseIndexNow::SubmissionService).to receive(:enqueue_batch).with(
+        [{ url: topic.url, locale: nil }],
+        source: "manual",
+      ).and_return(
+        batch_id: "batch-manual-1",
+        submitted_count: 1,
+        job_count: 1,
+        source: "manual",
+      )
+
+      post "/admin/plugins/discourse-indexnow/submit_urls.json",
+           params: {
+             urls: topic.url,
+           }
+
+      expect(response.status).to eq(200)
+      json = response.parsed_body
+      expect(json["submitted_urls"]).to eq(1)
+      expect(json["batch_id"]).to eq("batch-manual-1")
+      expect(DiscourseIndexNow::SubmissionService).to have_received(:enqueue_batch).with(
+        [{ url: topic.url, locale: nil }],
+        source: "manual",
+      )
+    end
+
+    it "rejects external, invalid, and ineligible topic URLs" do
+      restricted = Fabricate(:category, read_restricted: true)
+      restricted_topic = Fabricate(:topic, category: restricted)
+      external_url = "https://example.org/t/topic/999"
+      invalid_url = "not-a-url"
+
+      post "/admin/plugins/discourse-indexnow/submit_urls.json",
+           params: {
+             urls: [external_url, invalid_url, restricted_topic.url].join("\n"),
+           }
+
+      expect(response.status).to eq(422)
+      expect(response.parsed_body["errors"]).to be_present
+    end
+
+    it "rejects empty input explicitly" do
+      post "/admin/plugins/discourse-indexnow/submit_urls.json", params: { urls: "\n" }
+
+      expect(response.status).to eq(422)
+      expect(response.parsed_body["errors"]).to be_present
+    end
+
+    it "rejects more URLs than IndexNow allows in one request" do
+      urls = Array.new(DiscourseIndexNow::SubmissionService::BATCH_SIZE + 1) { topic.url }.join("\n")
+      post "/admin/plugins/discourse-indexnow/submit_urls.json", params: { urls: urls }
+
+      expect(response.status).to eq(422)
+      expect(response.parsed_body["errors"]).to be_present
+    end
+
+    it "deduplicates repeated URLs while preserving order" do
+      allow(DiscourseIndexNow::SubmissionService).to receive(:enqueue_batch).with(
+        [{ url: topic.url, locale: nil }],
+        source: "manual",
+      ).and_return(
+        batch_id: "batch-manual-2",
+        submitted_count: 1,
+        job_count: 1,
+        source: "manual",
+      )
+
+      post "/admin/plugins/discourse-indexnow/submit_urls.json",
+           params: {
+             urls: [topic.url, topic.url].join("\n"),
+           }
+
+      expect(response.status).to eq(200)
+      expect(DiscourseIndexNow::SubmissionService).to have_received(:enqueue_batch).with(
+        [{ url: topic.url, locale: nil }],
+        source: "manual",
+      )
+    end
+
+    it "submits on-site non-topic URLs" do
+      url = "#{Discourse.base_url}/categories"
+      allow(DiscourseIndexNow::SubmissionService).to receive(:enqueue_batch).with(
+        [{ url: url, locale: nil }],
+        source: "manual",
+      ).and_return(
+        batch_id: "batch-manual-3",
+        submitted_count: 1,
+        job_count: 1,
+        source: "manual",
+      )
+
+      post "/admin/plugins/discourse-indexnow/submit_urls.json",
+           params: {
+             urls: url,
+           }
+
+      expect(response.status).to eq(200)
+      expect(DiscourseIndexNow::SubmissionService).to have_received(:enqueue_batch).with(
+        [{ url: url, locale: nil }],
+        source: "manual",
+      )
+    end
+  end
 end

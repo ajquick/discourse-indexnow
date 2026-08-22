@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "securerandom"
+require "uri"
 
 module DiscourseIndexNow
   class AdminLogsController < ::Admin::AdminController
@@ -65,6 +66,24 @@ module DiscourseIndexNow
 
       render json: {
                matched_topics: topics.size,
+               submitted_urls: result[:submitted_count],
+               batch_id: result[:batch_id],
+             }
+    end
+
+    def submit_urls
+      lines = manual_url_lines(params[:urls])
+      if lines.size > SubmissionService::BATCH_SIZE
+        return render_manual_url_error
+      end
+
+      urls = valid_manual_urls(lines)
+      return render_manual_url_error if urls.empty?
+
+      entries = urls.map { |url| { url: url, locale: nil } }
+      result = SubmissionService.enqueue_batch(entries, source: "manual")
+
+      render json: {
                submitted_urls: result[:submitted_count],
                batch_id: result[:batch_id],
              }
@@ -188,6 +207,46 @@ module DiscourseIndexNow
       Date.parse(params[name])
     rescue ArgumentError, TypeError
       raise Discourse::InvalidParameters.new(name)
+    end
+
+    def render_manual_url_error
+      render(
+        json: {
+          errors: [I18n.t("js.discourse_index_now.admin.manual_no_valid")],
+        },
+        status: :unprocessable_entity,
+      )
+    end
+
+    def manual_url_lines(raw)
+      lines = Array(raw).join("\n").split(/[\r\n]+/).map(&:strip).reject(&:blank?)
+      lines
+    end
+
+    def valid_manual_urls(lines)
+      valid_urls = lines.filter_map do |line|
+        begin
+          uri = URI.parse(line)
+        rescue URI::Error, ArgumentError
+          next
+        end
+
+        next if %w[http https].exclude?(uri.scheme)
+        next unless uri.host.to_s.downcase == Discourse.current_hostname.to_s.downcase
+        next if manual_topic_ineligible?(uri)
+
+        uri.to_s
+      end
+
+      valid_urls.uniq
+    end
+
+    def manual_topic_ineligible?(uri)
+      route = Discourse.route_for(uri)
+      return false if route.blank? || route[:topic_id].blank?
+
+      topic = Topic.find_by(id: route[:topic_id])
+      topic.blank? || !Eligibility.eligible?(topic)
     end
   end
 end
