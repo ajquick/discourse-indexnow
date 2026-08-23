@@ -375,3 +375,14 @@ uses: discourse/.github/.github/workflows/discourse-plugin.yml@v1
 - `plugins/discourse-gamification/` — route map + nav initializer 的标准范例
 - `plugins/discourse-ai/` — 多子路由的复杂范例
 - `plugins/automation/` — 简单单路由范例
+
+## 11. V2 生产环境补充事项
+
+- Key 轮换策略：生成新 key 后旧 key 立即失效，`key.txt` 只接受当前
+  `SiteSetting.indexnow_api_key`，不再使用 PluginStore 保存过渡期状态。
+- 限流策略：`SubmitBatch` 会按当前 Redis 计数器的剩余容量提交一批 URL；
+  如果 backfill 的逻辑批次超过当前容量，先提交能容纳的部分，剩余 pending
+  记录由同一个 job 在下一个限额窗口继续处理。
+- 兜底任务：`Jobs::DiscourseIndexNow::RecoverStalledLogs` 每 5 分钟运行，
+  重新派发创建超过 30 分钟仍 pending 且具有 batch_id 的日志批次，避免
+  Sidekiq 丢 job 时记录永久悬空。

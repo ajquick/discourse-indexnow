@@ -24,18 +24,8 @@ module DiscourseIndexNow
     def valid_key?(request_key, current_key)
       return false if request_key.blank?
 
-      if current_key.present? &&
-           ActiveSupport::SecurityUtils.secure_compare(request_key, current_key)
-        return true
-      end
-
-      previous_key = PluginStore.get(DiscourseIndexNow::PLUGIN_NAME, "previous_api_key")
-      expires_at = PluginStore.get(DiscourseIndexNow::PLUGIN_NAME, "previous_key_expires_at")
-
-      previous_key.present? &&
-        expires_at.present? &&
-        Time.zone.parse(expires_at.to_s).future? &&
-        ActiveSupport::SecurityUtils.secure_compare(request_key, previous_key)
+      current_key.present? &&
+        ActiveSupport::SecurityUtils.secure_compare(request_key, current_key)
     end
 
     def rate_limit

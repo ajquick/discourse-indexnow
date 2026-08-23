@@ -98,7 +98,7 @@ describe DiscourseIndexNow::AdminLogsController, type: :request do
   end
 
   describe "#generate_key" do
-    it "generates a key and stores the previous key for rotation" do
+    it "generates a new key without storing rotation state" do
       post "/admin/plugins/discourse-indexnow/generate_key.json"
 
       expect(response.status).to eq(200)
@@ -106,10 +106,10 @@ describe DiscourseIndexNow::AdminLogsController, type: :request do
       expect(SiteSetting.indexnow_api_key).to eq(response.parsed_body["api_key"])
       expect(
         PluginStore.get(DiscourseIndexNow::PLUGIN_NAME, "previous_api_key"),
-      ).to eq("a" * 32)
+      ).to be_nil
       expect(
         PluginStore.get(DiscourseIndexNow::PLUGIN_NAME, "previous_key_expires_at"),
-      ).to be_present
+      ).to be_nil
     end
   end
 

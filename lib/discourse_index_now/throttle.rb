@@ -24,14 +24,20 @@ module DiscourseIndexNow
         url_count = url_count.to_i
         return false if throttled?
 
+        available_capacity.positive? && url_count <= available_capacity
+      end
+
+      def available_capacity
+        return 0 if throttled?
+
         hourly_limit = SiteSetting.indexnow_hourly_limit.to_i
         daily_limit = SiteSetting.indexnow_daily_limit.to_i
-        return false if hourly_limit <= 0 || daily_limit <= 0
+        return 0 if hourly_limit <= 0 || daily_limit <= 0
 
-        hourly_count = Discourse.redis.get(hourly_key).to_i
-        daily_count = Discourse.redis.get(daily_key).to_i
+        hourly_remaining = hourly_limit - Discourse.redis.get(hourly_key).to_i
+        daily_remaining = daily_limit - Discourse.redis.get(daily_key).to_i
 
-        hourly_count + url_count <= hourly_limit && daily_count + url_count <= daily_limit
+        [hourly_remaining, daily_remaining].min
       end
 
       def record_submission!(url_count)
@@ -46,18 +52,18 @@ module DiscourseIndexNow
         end
       end
 
-      def next_window_delay(url_count)
+      def next_window_delay
         now = Time.zone.now
         hourly_limit = SiteSetting.indexnow_hourly_limit.to_i
 
-        if hourly_limit.positive? &&
-             Discourse.redis.get(hourly_key(now)).to_i + url_count > hourly_limit
+        hourly_remaining = hourly_limit - Discourse.redis.get(hourly_key(now)).to_i
+        if hourly_limit.positive? && hourly_remaining <= 0
           return ((now.beginning_of_hour + 1.hour) - now).ceil
         end
 
         daily_limit = SiteSetting.indexnow_daily_limit.to_i
-        if daily_limit.positive? &&
-             Discourse.redis.get(daily_key(now)).to_i + url_count > daily_limit
+        daily_remaining = daily_limit - Discourse.redis.get(daily_key(now)).to_i
+        if daily_limit.positive? && daily_remaining <= 0
           return ((now.beginning_of_day + 1.day) - now).ceil
         end
 

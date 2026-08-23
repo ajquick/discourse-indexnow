@@ -33,20 +33,33 @@ module Jobs
         end
 
         urls = logs.pluck(:url)
-        unless ::DiscourseIndexNow::Throttle.can_submit?(urls.size)
+        capacity = ::DiscourseIndexNow::Throttle.available_capacity
+
+        if capacity <= 0
           ::Jobs.enqueue_in(
-            ::DiscourseIndexNow::Throttle.next_window_delay(urls.size),
+            ::DiscourseIndexNow::Throttle.next_window_delay,
             ::Jobs::DiscourseIndexNow::SubmitBatch,
             args,
           )
           return
         end
 
-        result = ::DiscourseIndexNow::Client.submit_batch(urls)
+        submitted_logs = capacity < urls.size ? logs.limit(capacity) : logs
+        submitted_urls = submitted_logs.pluck(:url)
+        result = ::DiscourseIndexNow::Client.submit_batch(submitted_urls)
 
         if result[:success]
-          ::DiscourseIndexNow::Throttle.record_submission!(urls.size)
-          update_logs(logs, :success, result[:status], nil)
+          ::DiscourseIndexNow::Throttle.record_submission!(submitted_urls.size)
+          update_logs(submitted_logs, :success, result[:status], nil)
+
+          remaining_count = urls.size - submitted_urls.size
+          if remaining_count.positive?
+            ::Jobs.enqueue_in(
+              ::DiscourseIndexNow::Throttle.next_window_delay,
+              ::Jobs::DiscourseIndexNow::SubmitBatch,
+              args,
+            )
+          end
           return
         end
 
@@ -55,7 +68,7 @@ module Jobs
           ::DiscourseIndexNow::Throttle.throttle_until!(Time.zone.now + retry_after.seconds)
         end
 
-        update_logs(logs, :failed, result[:status], result[:error])
+        update_logs(submitted_logs, :failed, result[:status], result[:error])
         raise ::DiscourseIndexNow::Client::SubmissionError,
               (result[:error] || "IndexNow submission failed")
       end

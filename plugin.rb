@@ -26,6 +26,7 @@ after_initialize do
   require_relative "app/controllers/discourse_index_now/admin_logs_controller"
   require_relative "app/controllers/discourse_index_now/admin_controller"
   require_relative "app/jobs/discourse_index_now/submit_batch"
+  require_relative "app/jobs/scheduled/discourse_index_now/recover_stalled_logs"
   require_relative "app/models/discourse_index_now/submission_log"
   require_relative "lib/discourse_index_now/client"
   require_relative "lib/discourse_index_now/eligibility"

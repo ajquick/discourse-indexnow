@@ -13,7 +13,7 @@ Automatically submit Discourse topic URLs to the [IndexNow](https://www.indexnow
 - Submit the main topic URL and all existing localizations in one IndexNow `urlList` batch.
 - Reuse the same batching engine for historical backfills, with automatic 10,000-URL chunks.
 - Apply hourly and daily submission limits, and honor IndexNow `Retry-After` responses.
-- Rotate the IndexNow key while keeping the previous key valid for seven days.
+- Rotate the IndexNow key; the previous key is invalidated immediately.
 - Verify that `/<key>.txt` is publicly accessible from the admin panel.
 - Re-submit or exclude content when topics move, categories change visibility, or tags update.
 - Track batch IDs, locales, a seven-day success trend, and categorized failure reasons.
@@ -116,7 +116,7 @@ Submissions are filtered before enqueueing and re-checked inside the job. The pl
 - Unlisted and deleted topics.
 - Categories in `indexnow_excluded_category_ids`.
 
-The key route is intentionally public, returns 404 for unknown keys, and is limited to 100 requests per minute per IP. During a seven-day rotation window, both the current and previous keys are accepted.
+The key route is intentionally public, returns 404 for unknown keys, and is limited to 100 requests per minute per IP. Generating a new key immediately invalidates the previous key.
 
 ## Known limitations
 
