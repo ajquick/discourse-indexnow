@@ -29,17 +29,17 @@ end
 #
 # Table name: indexnow_submission_logs
 #
-#  id            :bigint           not null, primary key
-#  batch_index   :integer          default(0), not null
-#  error_message :text
-#  locale        :string(20)
-#  response_code :integer
-#  status        :integer          default("pending"), not null
+#  id             :bigint           not null, primary key
+#  batch_index    :integer          default(0), not null
+#  error_message  :text
+#  locale         :string(20)
+#  response_code  :integer
+#  status         :integer          default("pending"), not null
 #  trigger_reason :integer          default("created"), not null
-#  url           :string           not null
-#  created_at    :datetime         not null
-#  updated_at    :datetime         not null
-#  batch_id      :string
+#  url            :string           not null
+#  created_at     :datetime         not null
+#  updated_at     :datetime         not null
+#  batch_id       :string
 #
 # Indexes
 #
@@ -47,5 +47,6 @@ end
 #  index_indexnow_submission_logs_on_batch_id_and_batch_index  (batch_id,batch_index)
 #  index_indexnow_submission_logs_on_created_at                (created_at)
 #  index_indexnow_submission_logs_on_status                    (status)
+#  index_indexnow_submission_logs_on_trigger_reason            (trigger_reason)
 #  index_indexnow_submission_logs_on_url                       (url)
 #
