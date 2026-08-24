@@ -70,7 +70,10 @@ describe DiscourseIndexNow::AdminLogsController, type: :request do
 
     it "returns a seven day trend and failure breakdown" do
       freeze_time(2.days.ago) do
-        DiscourseIndexNow::SubmissionLog.create!(url: "https://forum.example.com/t/a/1", status: :success)
+        DiscourseIndexNow::SubmissionLog.create!(
+          url: "https://forum.example.com/t/a/1",
+          status: :success,
+        )
         DiscourseIndexNow::SubmissionLog.create!(
           url: "https://forum.example.com/t/b/2",
           status: :failed,
@@ -106,19 +109,17 @@ describe DiscourseIndexNow::AdminLogsController, type: :request do
       expect(response.status).to eq(200)
       expect(response.parsed_body["api_key"]).to match(/\A[a-f0-9]{32}\z/)
       expect(SiteSetting.indexnow_api_key).to eq(response.parsed_body["api_key"])
-      expect(
-        PluginStore.get(DiscourseIndexNow::PLUGIN_NAME, "previous_api_key"),
-      ).to be_nil
-      expect(
-        PluginStore.get(DiscourseIndexNow::PLUGIN_NAME, "previous_key_expires_at"),
-      ).to be_nil
+      expect(PluginStore.get(DiscourseIndexNow::PLUGIN_NAME, "previous_api_key")).to be_nil
+      expect(PluginStore.get(DiscourseIndexNow::PLUGIN_NAME, "previous_key_expires_at")).to be_nil
     end
   end
 
   describe "#backfill_preview" do
     it "previews eligible topics and localized URLs without submitting" do
-      Fabricate(:topic_localization, topic: topic, locale: "es")
       allow(ContentLocalization).to receive(:crawler_locale_param_enabled?).and_return(true)
+      SiteSetting.indexnow_enabled = false
+      localization = Fabricate(:topic_localization, topic: topic, locale: "es")
+      SiteSetting.indexnow_enabled = true
 
       get "/admin/plugins/discourse-indexnow/backfill/preview.json",
           params: {
@@ -162,12 +163,7 @@ describe DiscourseIndexNow::AdminLogsController, type: :request do
         [{ url: topic.url, locale: nil }],
         source: "backfill",
         trigger_reason: :backfill,
-      ).and_return(
-        batch_id: "batch-1",
-        submitted_count: 1,
-        job_count: 1,
-        source: "backfill",
-      )
+      ).and_return(batch_id: "batch-1", submitted_count: 1, job_count: 1, source: "backfill")
 
       post "/admin/plugins/discourse-indexnow/backfill.json",
            params: {
@@ -195,17 +191,9 @@ describe DiscourseIndexNow::AdminLogsController, type: :request do
         [{ url: topic.url, locale: nil }],
         source: "manual",
         trigger_reason: :manual,
-      ).and_return(
-        batch_id: "batch-manual-1",
-        submitted_count: 1,
-        job_count: 1,
-        source: "manual",
-      )
+      ).and_return(batch_id: "batch-manual-1", submitted_count: 1, job_count: 1, source: "manual")
 
-      post "/admin/plugins/discourse-indexnow/submit_urls.json",
-           params: {
-             urls: topic.url,
-           }
+      post "/admin/plugins/discourse-indexnow/submit_urls.json", params: { urls: topic.url }
 
       expect(response.status).to eq(200)
       json = response.parsed_body
@@ -241,7 +229,8 @@ describe DiscourseIndexNow::AdminLogsController, type: :request do
     end
 
     it "rejects more URLs than IndexNow allows in one request" do
-      urls = Array.new(DiscourseIndexNow::SubmissionService::BATCH_SIZE + 1) { topic.url }.join("\n")
+      urls =
+        Array.new(DiscourseIndexNow::SubmissionService::BATCH_SIZE + 1) { topic.url }.join("\n")
       post "/admin/plugins/discourse-indexnow/submit_urls.json", params: { urls: urls }
 
       expect(response.status).to eq(422)
@@ -253,12 +242,7 @@ describe DiscourseIndexNow::AdminLogsController, type: :request do
         [{ url: topic.url, locale: nil }],
         source: "manual",
         trigger_reason: :manual,
-      ).and_return(
-        batch_id: "batch-manual-2",
-        submitted_count: 1,
-        job_count: 1,
-        source: "manual",
-      )
+      ).and_return(batch_id: "batch-manual-2", submitted_count: 1, job_count: 1, source: "manual")
 
       post "/admin/plugins/discourse-indexnow/submit_urls.json",
            params: {
@@ -279,17 +263,9 @@ describe DiscourseIndexNow::AdminLogsController, type: :request do
         [{ url: url, locale: nil }],
         source: "manual",
         trigger_reason: :manual,
-      ).and_return(
-        batch_id: "batch-manual-3",
-        submitted_count: 1,
-        job_count: 1,
-        source: "manual",
-      )
+      ).and_return(batch_id: "batch-manual-3", submitted_count: 1, job_count: 1, source: "manual")
 
-      post "/admin/plugins/discourse-indexnow/submit_urls.json",
-           params: {
-             urls: url,
-           }
+      post "/admin/plugins/discourse-indexnow/submit_urls.json", params: { urls: url }
 
       expect(response.status).to eq(200)
       expect(DiscourseIndexNow::SubmissionService).to have_received(:enqueue_batch).with(

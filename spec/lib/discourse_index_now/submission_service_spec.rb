@@ -22,16 +22,16 @@ describe DiscourseIndexNow::SubmissionService do
 
   describe "#handle_post_created" do
     it "creates one log per URL in a localized batch" do
+      SiteSetting.indexnow_enabled = false
       Fabricate(:topic_localization, topic: topic, locale: "es")
       Fabricate(:topic_localization, topic: topic, locale: "zh_CN")
+      SiteSetting.indexnow_enabled = true
       allow(ContentLocalization).to receive(:crawler_locale_param_enabled?).and_return(true)
 
       described_class.handle_post_created(post)
 
       logs = DiscourseIndexNow::SubmissionLog.order(:id).all
-      expect(logs.map(&:url)).to eq(
-        [topic.url, "#{topic.url}?tl=es", "#{topic.url}?tl=zh_CN"],
-      )
+      expect(logs.map(&:url)).to eq([topic.url, "#{topic.url}?tl=es", "#{topic.url}?tl=zh_CN"])
       expect(logs.map(&:locale)).to eq([nil, "es", "zh_CN"])
       expect(logs.map(&:batch_id).uniq).to contain_exactly(logs.first.batch_id)
       expect(logs.map(&:batch_index).uniq).to eq([1])
@@ -57,13 +57,30 @@ describe DiscourseIndexNow::SubmissionService do
       allow(ContentLocalization).to receive(:crawler_locale_param_enabled?).and_return(true)
 
       described_class.handle_post_created(post)
-      Fabricate(:topic_localization, topic: topic, locale: "es")
+      SiteSetting.indexnow_enabled = false
+      localization = Fabricate(:topic_localization, topic: topic, locale: "es")
+      SiteSetting.indexnow_enabled = true
+      described_class.handle_topic_localization_created(localization)
 
       logs = DiscourseIndexNow::SubmissionLog.order(:id).all
       expect(logs.map(&:url)).to eq([topic.url, "#{topic.url}?tl=es"])
       expect(logs.map(&:locale)).to eq([nil, "es"])
       expect(logs.map(&:trigger_reason)).to eq(%w[created created])
       expect(Jobs).to have_received(:enqueue).twice
+    end
+
+    it "does not duplicate locale URLs when translation is already available" do
+      allow(ContentLocalization).to receive(:crawler_locale_param_enabled?).and_return(true)
+
+      SiteSetting.indexnow_enabled = false
+      Fabricate(:topic_localization, topic: topic, locale: "es")
+      SiteSetting.indexnow_enabled = true
+
+      described_class.handle_post_created(post)
+
+      expect(DiscourseIndexNow::SubmissionLog.order(:id).pluck(:url)).to eq(
+        [topic.url, "#{topic.url}?tl=es"],
+      )
     end
 
     it "does not submit a late translation when create submissions are disabled" do
@@ -128,18 +145,13 @@ describe DiscourseIndexNow::SubmissionService do
       urls = []
       result = nil
       stub_const(described_class, :BATCH_SIZE, 2) do
-        urls = [
-          "https://forum.example.com/t/one/1",
-          "https://forum.example.com/t/two/2",
-          "https://forum.example.com/t/three/3",
+        urls = %w[
+          https://forum.example.com/t/one/1
+          https://forum.example.com/t/two/2
+          https://forum.example.com/t/three/3
         ]
 
-        result =
-          described_class.enqueue_batch(
-            urls,
-            source: "backfill",
-            trigger_reason: :backfill,
-          )
+        result = described_class.enqueue_batch(urls, source: "backfill", trigger_reason: :backfill)
       end
 
       logs = DiscourseIndexNow::SubmissionLog.order(:id).all
@@ -173,16 +185,15 @@ describe DiscourseIndexNow::SubmissionService do
       expect(deletion_logs).to all(be_pending)
       expect(Jobs).to have_received(:enqueue).with(
         Jobs::DiscourseIndexNow::SubmitBatch,
-        {
-          batch_id: deletion_logs.first.batch_id,
-          batch_index: 1,
-          topic_id: nil,
-        },
+        { batch_id: deletion_logs.first.batch_id, batch_index: 1, topic_id: nil },
       )
     end
 
     it "does not submit a deleted topic from a restricted category" do
-      topic.update!(deleted_at: Time.zone.now, category: Fabricate(:category, read_restricted: true))
+      topic.update!(
+        deleted_at: Time.zone.now,
+        category: Fabricate(:category, read_restricted: true),
+      )
 
       expect { described_class.handle_topic_destroyed(topic) }.not_to change(
         DiscourseIndexNow::SubmissionLog,
@@ -201,11 +212,7 @@ describe DiscourseIndexNow::SubmissionService do
     end
 
     it "submits a soft-deleted topic through the real destruction event" do
-      PostDestroyer.new(
-        Discourse.system_user,
-        post,
-        context: "spec_topic_deletion",
-      ).destroy
+      PostDestroyer.new(Discourse.system_user, post, context: "spec_topic_deletion").destroy
 
       expect(topic.reload.deleted_at).to be_present
       logs = DiscourseIndexNow::SubmissionLog.where(trigger_reason: :deleted)

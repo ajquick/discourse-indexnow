@@ -81,7 +81,8 @@ module DiscourseIndexNow
     end
 
     def self.disable_if_login_required!
-      SiteSetting.indexnow_enabled = false if SiteSetting.indexnow_enabled? && SiteSetting.login_required?
+      SiteSetting.indexnow_enabled = false if SiteSetting.indexnow_enabled? &&
+        SiteSetting.login_required?
     end
 
     def self.enqueue(topic)
@@ -97,11 +98,7 @@ module DiscourseIndexNow
       return unless Discourse.redis.set(key, "1", nx: true, ex: DEBOUNCE_SECONDS)
 
       entries = build_url_entries(topic, localized: localized)
-      enqueue_batch(
-        entries,
-        topic_id: topic.id,
-        trigger_reason: trigger_reason,
-      )
+      enqueue_batch(entries, topic_id: topic.id, trigger_reason: trigger_reason)
     end
 
     def self.enqueue_batch(
@@ -112,57 +109,64 @@ module DiscourseIndexNow
       batch_id: SecureRandom.uuid
     )
       entries =
-        Array(entries).filter_map do |entry|
-          if entry.is_a?(String)
-            { url: entry, locale: nil }
-          elsif entry.respond_to?(:slice)
-            normalized = entry.slice(:url, :locale)
-            normalized if normalized[:url].present?
+        Array(entries)
+          .filter_map do |entry|
+            if entry.is_a?(String)
+              { url: entry, locale: nil }
+            elsif entry.respond_to?(:slice)
+              normalized = entry.slice(:url, :locale)
+              normalized if normalized[:url].present?
+            end
           end
-        end
+          .uniq { |entry| entry[:url] }
       return { batch_id: batch_id, submitted_count: 0, job_count: 0 } if entries.blank?
 
-      entries.each_slice(BATCH_SIZE).with_index(1).map do |chunk, batch_index|
-        logs =
-          chunk.map do |entry|
-            SubmissionLog.create!(
-              url: entry[:url],
-              locale: entry[:locale],
-              batch_id: batch_id,
-              batch_index: batch_index,
-              status: :pending,
-              trigger_reason: trigger_reason,
-            )
-          end
+      pending_urls =
+        SubmissionLog
+          .where(status: :pending)
+          .where(url: entries.map { |entry| entry[:url] })
+          .pluck(:url)
+          .to_set
+      entries.reject! { |entry| pending_urls.include?(entry[:url]) }
+      return { batch_id: batch_id, submitted_count: 0, job_count: 0 } if entries.blank?
 
-        Jobs.enqueue(
-          Jobs::DiscourseIndexNow::SubmitBatch,
-          batch_id: batch_id,
-          batch_index: batch_index,
-          topic_id: topic_id,
-        )
+      entries
+        .each_slice(BATCH_SIZE)
+        .with_index(1)
+        .map do |chunk, batch_index|
+          logs =
+            chunk.map do |entry|
+              SubmissionLog.create!(
+                url: entry[:url],
+                locale: entry[:locale],
+                batch_id: batch_id,
+                batch_index: batch_index,
+                status: :pending,
+                trigger_reason: trigger_reason,
+              )
+            end
 
-        {
-          batch_id: batch_id,
-          submitted_count: logs.size,
-          job_count: 1,
-          source: source,
-        }
-      end.reduce do |result, chunk_result|
-        result[:submitted_count] += chunk_result[:submitted_count]
-        result[:job_count] += chunk_result[:job_count]
-        result
-      end
+          Jobs.enqueue(
+            Jobs::DiscourseIndexNow::SubmitBatch,
+            batch_id: batch_id,
+            batch_index: batch_index,
+            topic_id: topic_id,
+          )
+
+          { batch_id: batch_id, submitted_count: logs.size, job_count: 1, source: source }
+        end
+        .reduce do |result, chunk_result|
+          result[:submitted_count] += chunk_result[:submitted_count]
+          result[:job_count] += chunk_result[:job_count]
+          result
+        end
     end
 
     def self.enqueue_deleted_topic(topic)
       return if SiteSetting.indexnow_api_key.blank?
 
       mark_topic_logs_failed(topic, "topic_destroyed")
-      enqueue_batch(
-        UrlBuilder.build_urls(topic),
-        trigger_reason: :deleted,
-      )
+      enqueue_batch(UrlBuilder.build_urls(topic), trigger_reason: :deleted)
     end
 
     def self.debounce_key(topic_or_id)
@@ -174,9 +178,11 @@ module DiscourseIndexNow
       return [] if topic.blank?
       return [{ url: topic.url, locale: nil }] unless localized
 
-      UrlBuilder.build_urls(topic).select do |entry|
-        entry[:locale].nil? || Eligibility.eligible_locales(topic, [entry[:locale]]).present?
-      end
+      UrlBuilder
+        .build_urls(topic)
+        .select do |entry|
+          entry[:locale].nil? || Eligibility.eligible_locales(topic, [entry[:locale]]).present?
+        end
     end
 
     def self.mark_topic_logs_failed(topic, reason)
@@ -206,6 +212,5 @@ module DiscourseIndexNow
     def self.topic_urls(topic)
       [topic.url] + UrlBuilder.build_urls(topic).map { |entry| entry[:url] }
     end
-
   end
 end

@@ -32,9 +32,7 @@ describe ::DiscourseIndexNow do
     allow(DiscourseIndexNow::SubmissionService).to receive(:handle_topic_changed)
     DiscourseEvent.trigger(:topic_category_changed, topic, category)
 
-    expect(DiscourseIndexNow::SubmissionService).to have_received(:handle_topic_changed).with(
-      topic,
-    )
+    expect(DiscourseIndexNow::SubmissionService).to have_received(:handle_topic_changed).with(topic)
   end
 
   it "listens for category visibility updates" do
@@ -63,6 +61,15 @@ describe ::DiscourseIndexNow do
       post,
       true,
     )
+  end
+
+  it "submits a topic localization when it is created" do
+    allow(DiscourseIndexNow::SubmissionService).to receive(:handle_topic_localization_created)
+    localization = Fabricate(:topic_localization, topic: topic, locale: "en")
+
+    expect(DiscourseIndexNow::SubmissionService).to have_received(
+      :handle_topic_localization_created,
+    ).with(localization)
   end
 
   it "publishes the finalized plugin metadata" do
