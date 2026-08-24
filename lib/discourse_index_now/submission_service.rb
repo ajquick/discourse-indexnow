@@ -25,7 +25,7 @@ module DiscourseIndexNow
     def self.handle_topic_destroyed(topic)
       return unless SiteSetting.indexnow_enabled?
       return if topic.blank?
-      return unless Eligibility.base_eligible?(topic)
+      return unless Eligibility.eligible_for_deletion?(topic)
 
       enqueue_deleted_topic(topic)
     end

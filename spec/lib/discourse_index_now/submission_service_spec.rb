@@ -199,6 +199,18 @@ describe DiscourseIndexNow::SubmissionService do
       expect(topic.reload.closed).to eq(true)
       expect(DiscourseIndexNow::SubmissionLog.where(trigger_reason: :deleted).count).to eq(1)
     end
+
+    it "submits a soft-deleted topic through the real destruction event" do
+      PostDestroyer.new(
+        Discourse.system_user,
+        post,
+        context: "spec_topic_deletion",
+      ).destroy
+
+      expect(topic.reload.deleted_at).to be_present
+      logs = DiscourseIndexNow::SubmissionLog.where(trigger_reason: :deleted)
+      expect(logs.map(&:url)).to eq([topic.url])
+    end
   end
 
   describe "#handle_topic_changed" do

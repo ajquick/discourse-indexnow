@@ -9,6 +9,12 @@ module DiscourseIndexNow
       base_eligible?(topic)
     end
 
+    def self.eligible_for_deletion?(topic)
+      return false if topic.blank?
+
+      base_eligible?(topic)
+    end
+
     # Locale variants share the topic and category visibility rules. Keeping
     # this method separate leaves room for locale-specific exclusions later.
     def self.eligible_locales(topic, locales)
@@ -34,7 +40,13 @@ module DiscourseIndexNow
     end
 
     def self.excluded_tag_names
-      SiteSetting.indexnow_excluded_tag_names_map.map(&:strip).reject(&:blank?).uniq
+      SiteSetting
+        .indexnow_excluded_tag_names
+        .to_s
+        .split("|")
+        .map(&:strip)
+        .reject(&:blank?)
+        .uniq
     end
 
     def self.base_eligible?(topic)

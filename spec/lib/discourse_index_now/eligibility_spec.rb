@@ -52,6 +52,12 @@ describe DiscourseIndexNow::Eligibility do
     expect(described_class.eligible?(topic)).to eq(false)
   end
 
+  it "allows a deleted topic only on the deletion notification path" do
+    topic.update!(deleted_at: Time.zone.now)
+
+    expect(described_class.eligible_for_deletion?(topic)).to eq(true)
+  end
+
   it "rejects a topic in an explicitly excluded category" do
     SiteSetting.indexnow_excluded_category_ids = category.id.to_s
 
@@ -71,6 +77,12 @@ describe DiscourseIndexNow::Eligibility do
     SiteSetting.indexnow_excluded_tag_names = "internal"
 
     expect(described_class.eligible?(topic)).to eq(true)
+  end
+
+  it "parses tag names without relying on a version-specific map getter" do
+    SiteSetting.indexnow_excluded_tag_names = " internal | public | "
+
+    expect(described_class.excluded_tag_names).to eq(%w[internal public])
   end
 
   it "rejects every topic when login is required" do
