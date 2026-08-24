@@ -25,13 +25,14 @@ module DiscourseIndexNow
     def self.handle_topic_destroyed(topic)
       return unless SiteSetting.indexnow_enabled?
       return if topic.blank?
-      return unless Eligibility.eligible_for_deletion?(topic)
+      return unless Eligibility.base_eligible?(topic)
 
       enqueue_deleted_topic(topic)
     end
 
     def self.handle_topic_localization_created(localization)
       return unless SiteSetting.indexnow_enabled?
+      return unless SiteSetting.indexnow_submit_on_create?
       return if localization.blank?
 
       topic = localization.topic

@@ -52,19 +52,6 @@ describe DiscourseIndexNow::Eligibility do
     expect(described_class.eligible?(topic)).to eq(false)
   end
 
-  it "allows a deleted topic for the deletion notification path" do
-    topic.update!(deleted_at: Time.zone.now)
-
-    expect(described_class.eligible_for_deletion?(topic)).to eq(true)
-  end
-
-  it "rejects a deleted private topic for the deletion notification path" do
-    topic.update!(deleted_at: Time.zone.now)
-    category.update!(read_restricted: true)
-
-    expect(described_class.eligible_for_deletion?(topic)).to eq(false)
-  end
-
   it "rejects a topic in an explicitly excluded category" do
     SiteSetting.indexnow_excluded_category_ids = category.id.to_s
 

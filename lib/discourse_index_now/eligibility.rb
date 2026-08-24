@@ -9,12 +9,6 @@ module DiscourseIndexNow
       base_eligible?(topic)
     end
 
-    def self.eligible_for_deletion?(topic)
-      return false if topic.blank? || topic.deleted_at.blank?
-
-      base_eligible?(topic)
-    end
-
     # Locale variants share the topic and category visibility rules. Keeping
     # this method separate leaves room for locale-specific exclusions later.
     def self.eligible_locales(topic, locales)

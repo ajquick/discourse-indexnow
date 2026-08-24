@@ -65,6 +65,15 @@ describe DiscourseIndexNow::SubmissionService do
       expect(logs.map(&:trigger_reason)).to eq(%w[created created])
       expect(Jobs).to have_received(:enqueue).twice
     end
+
+    it "does not submit a late translation when create submissions are disabled" do
+      SiteSetting.indexnow_submit_on_create = false
+      allow(ContentLocalization).to receive(:crawler_locale_param_enabled?).and_return(true)
+
+      Fabricate(:topic_localization, topic: topic, locale: "es")
+
+      expect(DiscourseIndexNow::SubmissionLog.count).to eq(0)
+    end
   end
 
   describe "#handle_post_edited" do
@@ -179,6 +188,16 @@ describe DiscourseIndexNow::SubmissionService do
         DiscourseIndexNow::SubmissionLog,
         :count,
       )
+    end
+
+    it "submits when the author deletes their own first post without trashing the topic" do
+      SiteSetting.delete_removed_posts_after = 72
+
+      PostDestroyer.new(post.user, post).destroy
+
+      expect(topic.reload.deleted_at).to be_blank
+      expect(topic.reload.closed).to eq(true)
+      expect(DiscourseIndexNow::SubmissionLog.where(trigger_reason: :deleted).count).to eq(1)
     end
   end
 
