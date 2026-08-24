@@ -52,7 +52,12 @@ module DiscourseIndexNow
     def backfill
       topics = backfill_topics
       entries = topics.flat_map { |topic| UrlBuilder.build_urls(topic) }
-      result = SubmissionService.enqueue_batch(entries, source: "backfill")
+      result =
+        SubmissionService.enqueue_batch(
+          entries,
+          source: "backfill",
+          trigger_reason: :backfill,
+        )
 
       render json: {
                matched_topics: topics.size,
@@ -71,7 +76,12 @@ module DiscourseIndexNow
       return render_manual_url_error if urls.empty?
 
       entries = urls.map { |url| { url: url, locale: nil } }
-      result = SubmissionService.enqueue_batch(entries, source: "manual")
+      result =
+        SubmissionService.enqueue_batch(
+          entries,
+          source: "manual",
+          trigger_reason: :manual,
+        )
 
       render json: {
                submitted_urls: result[:submitted_count],
@@ -104,6 +114,7 @@ module DiscourseIndexNow
         batch_index: log.batch_index,
         locale: log.locale,
         status: log.status,
+        trigger_reason: log.trigger_reason,
         response_code: log.response_code,
         error_message: log.error_message,
         created_at: log.created_at,
@@ -186,6 +197,14 @@ module DiscourseIndexNow
           )
           .where(categories: { read_restricted: false })
           .where.not(category_id: Eligibility.excluded_category_ids)
+
+      excluded_tag_names = Eligibility.excluded_tag_names
+      unless excluded_tag_names.empty?
+        scope =
+          scope.where.not(
+            id: Topic.joins(:tags).where(tags: { name: excluded_tag_names }).select(:id),
+          )
+      end
 
       scope = scope.where(category_id: params[:category_id]) if params[:category_id].present?
       scope = scope.where("topics.created_at >= ?", parsed_date(:since)) if params[:since].present?

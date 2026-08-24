@@ -30,6 +30,14 @@ describe DiscourseIndexNow::SubmissionLog do
     expect(log.locale).to eq("es")
   end
 
+  it "defaults new logs to the created trigger reason and supports the enum" do
+    log = described_class.create!(url: "https://forum.example.com/t/hello/1")
+
+    expect(log).to be_created
+    log.deleted!
+    expect(log).to be_deleted
+  end
+
   it "requires a URL" do
     log = described_class.new
 

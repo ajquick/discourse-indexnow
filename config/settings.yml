@@ -17,6 +17,10 @@ discourse_index_now:
     type: category_list
     default: ""
     client: false
+  indexnow_excluded_tag_names:
+    type: tag_list
+    default: ""
+    client: false
   indexnow_hourly_limit:
     default: 200
     client: false

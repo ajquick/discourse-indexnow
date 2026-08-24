@@ -59,11 +59,28 @@ export default <template>
     <section class="indexnow-charts">
       <div class="indexnow-chart">
         <h3>{{i18n "discourse_index_now.admin.trend_7d"}}</h3>
-        <svg viewBox="0 0 260 104" role="img" aria-label={{i18n "discourse_index_now.admin.trend_7d"}}>
+        <svg
+          class="indexnow-trend-svg"
+          viewBox="0 0 280 112"
+          preserveAspectRatio="xMidYMid meet"
+          role="img"
+          aria-label={{i18n "discourse_index_now.admin.trend_7d"}}
+        >
           {{#each @controller.trendBars as |day|}}
-            <rect x={{day.x}} y={{day.successY}} width="8" height={{day.successHeight}} class="indexnow-bar-success" />
+            <rect
+              x={{day.successX}}
+              y={{day.successY}}
+              width="8"
+              height={{day.successHeight}}
+              class="indexnow-bar-success"
+            />
             <rect x={{day.failedX}} y={{day.failedY}} width="8" height={{day.failedHeight}} class="indexnow-bar-failed" />
-            <text x={{day.labelX}} y="98" text-anchor="middle">{{day.short_date}}</text>
+            <text
+              x={{day.labelX}}
+              y="101"
+              text-anchor="middle"
+              class="indexnow-trend-label {{if day.edgeLabel "" "indexnow-trend-label--middle"}}"
+            >{{day.short_date}}</text>
           {{/each}}
         </svg>
         <div class="indexnow-chart-legend">
@@ -218,6 +235,7 @@ export default <template>
           <th>{{i18n "discourse_index_now.admin.url"}}</th>
           <th>{{i18n "discourse_index_now.admin.locale"}}</th>
           <th>{{i18n "discourse_index_now.admin.status"}}</th>
+          <th>{{i18n "discourse_index_now.admin.trigger_reason"}}</th>
           <th>{{i18n "discourse_index_now.admin.response_code"}}</th>
           <th>{{i18n "discourse_index_now.admin.error_message"}}</th>
           <th>{{i18n "discourse_index_now.admin.batch"}}</th>
@@ -230,6 +248,7 @@ export default <template>
             <td>{{entry.url}}</td>
             <td>{{if entry.locale entry.locale "-"}}</td>
             <td class="indexnow-status-{{entry.status}}">{{entry.status_label}}</td>
+            <td>{{entry.trigger_reason_label}}</td>
             <td>{{entry.response_code}}</td>
             <td>{{entry.error_message}}</td>
             <td><code>{{entry.batch_id}}</code></td>
@@ -237,7 +256,7 @@ export default <template>
           </tr>
         {{else}}
           <tr>
-            <td colspan="7">{{i18n "discourse_index_now.admin.no_logs"}}</td>
+            <td colspan="8">{{i18n "discourse_index_now.admin.no_logs"}}</td>
           </tr>
         {{/each}}
       </tbody>

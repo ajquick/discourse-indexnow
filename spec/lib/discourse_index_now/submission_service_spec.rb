@@ -13,6 +13,7 @@ describe DiscourseIndexNow::SubmissionService do
     SiteSetting.indexnow_submit_on_create = true
     SiteSetting.indexnow_submit_on_edit = true
     SiteSetting.login_required = false
+    SiteSetting.indexnow_excluded_tag_names = ""
     Discourse.redis.del(described_class.debounce_key(topic.id))
     allow(Jobs).to receive(:enqueue)
   end
@@ -34,6 +35,7 @@ describe DiscourseIndexNow::SubmissionService do
       expect(logs.map(&:locale)).to eq([nil, "es", "zh_CN"])
       expect(logs.map(&:batch_id).uniq).to contain_exactly(logs.first.batch_id)
       expect(logs.map(&:batch_index).uniq).to eq([1])
+      expect(logs.map(&:trigger_reason).uniq).to eq(%w[created])
       expect(Jobs).to have_received(:enqueue).with(
         Jobs::DiscourseIndexNow::SubmitBatch,
         batch_id: logs.first.batch_id,
@@ -49,6 +51,19 @@ describe DiscourseIndexNow::SubmissionService do
       described_class.handle_post_created(post)
 
       expect(DiscourseIndexNow::SubmissionLog.pluck(:url, :locale)).to eq([[topic.url, nil]])
+    end
+
+    it "submits a locale URL when its translation is created after the initial submission" do
+      allow(ContentLocalization).to receive(:crawler_locale_param_enabled?).and_return(true)
+
+      described_class.handle_post_created(post)
+      Fabricate(:topic_localization, topic: topic, locale: "es")
+
+      logs = DiscourseIndexNow::SubmissionLog.order(:id).all
+      expect(logs.map(&:url)).to eq([topic.url, "#{topic.url}?tl=es"])
+      expect(logs.map(&:locale)).to eq([nil, "es"])
+      expect(logs.map(&:trigger_reason)).to eq(%w[created created])
+      expect(Jobs).to have_received(:enqueue).twice
     end
   end
 
@@ -67,6 +82,7 @@ describe DiscourseIndexNow::SubmissionService do
       described_class.handle_post_edited(reply, true)
 
       expect(DiscourseIndexNow::SubmissionLog.count).to eq(1)
+      expect(DiscourseIndexNow::SubmissionLog.first.trigger_reason).to eq("edited")
     end
   end
 
@@ -109,13 +125,19 @@ describe DiscourseIndexNow::SubmissionService do
           "https://forum.example.com/t/three/3",
         ]
 
-        result = described_class.enqueue_batch(urls, source: "backfill")
+        result =
+          described_class.enqueue_batch(
+            urls,
+            source: "backfill",
+            trigger_reason: :backfill,
+          )
       end
 
       logs = DiscourseIndexNow::SubmissionLog.order(:id).all
       expect(result[:submitted_count]).to eq(3)
       expect(result[:job_count]).to eq(2)
       expect(result[:source]).to eq("backfill")
+      expect(logs.map(&:trigger_reason).uniq).to eq(%w[backfill])
       expect(logs.map(&:batch_id).uniq).to contain_exactly(result[:batch_id])
       expect(logs.map(&:batch_index)).to eq([1, 1, 2])
       expect(Jobs).to have_received(:enqueue).twice
@@ -123,14 +145,40 @@ describe DiscourseIndexNow::SubmissionService do
   end
 
   describe "#handle_topic_destroyed" do
-    it "marks all pending topic URLs failed" do
+    it "marks stale pending URLs failed and submits all topic URLs for deletion" do
       allow(ContentLocalization).to receive(:crawler_locale_param_enabled?).and_return(true)
+      Fabricate(:topic_localization, topic: topic, locale: "es")
+      Fabricate(:topic_localization, topic: topic, locale: "zh_CN")
       described_class.enqueue(topic)
+      topic.update!(deleted_at: Time.zone.now)
       described_class.handle_topic_destroyed(topic)
 
-      logs = DiscourseIndexNow::SubmissionLog.all
-      expect(logs).to all(be_failed)
-      expect(logs.map(&:error_message).uniq).to eq([described_class::DESTROYED_REASON])
+      stale_logs = DiscourseIndexNow::SubmissionLog.where(trigger_reason: :created)
+      deletion_logs = DiscourseIndexNow::SubmissionLog.where(trigger_reason: :deleted)
+      expect(stale_logs).to all(be_failed)
+      expect(stale_logs.map(&:error_message).uniq).to eq(["topic_destroyed"])
+      expect(deletion_logs.map(&:url)).to eq(
+        [topic.url, "#{topic.url}?tl=es", "#{topic.url}?tl=zh_CN"],
+      )
+      expect(deletion_logs.map(&:locale)).to eq([nil, "es", "zh_CN"])
+      expect(deletion_logs).to all(be_pending)
+      expect(Jobs).to have_received(:enqueue).with(
+        Jobs::DiscourseIndexNow::SubmitBatch,
+        {
+          batch_id: deletion_logs.first.batch_id,
+          batch_index: 1,
+          topic_id: nil,
+        },
+      )
+    end
+
+    it "does not submit a deleted topic from a restricted category" do
+      topic.update!(deleted_at: Time.zone.now, category: Fabricate(:category, read_restricted: true))
+
+      expect { described_class.handle_topic_destroyed(topic) }.not_to change(
+        DiscourseIndexNow::SubmissionLog,
+        :count,
+      )
     end
   end
 
@@ -139,6 +187,7 @@ describe DiscourseIndexNow::SubmissionService do
       described_class.handle_topic_changed(topic)
 
       expect(DiscourseIndexNow::SubmissionLog.count).to eq(1)
+      expect(DiscourseIndexNow::SubmissionLog.first.trigger_reason).to eq("category_changed")
     end
 
     it "marks pending logs failed when the new category is excluded" do
@@ -164,6 +213,7 @@ describe DiscourseIndexNow::SubmissionService do
       restricted.update!(read_restricted: false)
 
       expect(DiscourseIndexNow::SubmissionLog.count).to eq(1)
+      expect(DiscourseIndexNow::SubmissionLog.first.trigger_reason).to eq("category_changed")
     end
   end
 

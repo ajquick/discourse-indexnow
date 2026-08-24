@@ -5,6 +5,7 @@ en:
     indexnow_submit_on_create: "Submit new topics to IndexNow"
     indexnow_submit_on_edit: "Resubmit edited first posts to IndexNow"
     indexnow_excluded_category_ids: "Categories that should never be submitted to IndexNow"
+    indexnow_excluded_tag_names: "Tags whose topics should never be submitted to IndexNow"
     indexnow_hourly_limit: "Maximum URLs submitted to IndexNow per hour"
     indexnow_daily_limit: "Maximum URLs submitted to IndexNow per day"
     errors:

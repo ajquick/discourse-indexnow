@@ -19,5 +19,15 @@ module DiscourseIndexNow
 
       urls
     end
+
+    def self.build_locale_url(topic, locale)
+      return if topic.blank? || locale.blank?
+      return unless ::ContentLocalization.crawler_locale_param_enabled?
+
+      {
+        url: "#{topic.url}?#{::Discourse::LOCALE_PARAM}=#{ERB::Util.url_encode(locale)}",
+        locale: locale,
+      }
+    end
   end
 end

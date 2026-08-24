@@ -7,6 +7,8 @@ import { popupAjaxError } from "discourse/lib/ajax-error";
 import { i18n } from "discourse-i18n";
 
 const PER_PAGE = 50;
+const TREND_DAY_WIDTH = 40;
+const TREND_BAR_HEIGHT = 72;
 
 export default class AdminPluginsShowDiscourseIndexNowController extends Controller {
   @tracked data = null;
@@ -29,6 +31,9 @@ export default class AdminPluginsShowDiscourseIndexNowController extends Control
     return (this.data?.logs || []).map((log) => ({
       ...log,
       status_label: i18n(`discourse_index_now.admin.status_${log.status}`),
+      trigger_reason_label: i18n(
+        `discourse_index_now.admin.trigger_reason_${log.trigger_reason}`
+      ),
     }));
   }
 
@@ -48,20 +53,23 @@ export default class AdminPluginsShowDiscourseIndexNowController extends Control
     const max = Math.max(1, ...trend.map((day) => day.success + day.failed));
 
     return trend.map((day, index) => {
-      const x = 14 + index * 36;
-      const successHeight = Math.round((day.success / max) * 72);
-      const failedHeight = Math.round((day.failed / max) * 72);
+      const centerX = 20 + index * TREND_DAY_WIDTH;
+      const successHeight = Math.round((day.success / max) * TREND_BAR_HEIGHT);
+      const failedHeight = Math.round((day.failed / max) * TREND_BAR_HEIGHT);
+      const successY = 84 - successHeight;
+      const failedY = 84 - failedHeight;
 
       return {
         ...day,
         short_date: day.date.slice(5),
-        x,
-        failedX: x + 10,
-        labelX: x + 9,
-        successY: 80 - successHeight,
-        failedY: 80 - failedHeight,
+        successX: centerX - 10,
+        failedX: centerX + 2,
+        labelX: centerX,
+        successY,
+        failedY,
         successHeight,
         failedHeight,
+        edgeLabel: index === 0 || index === trend.length - 1,
       };
     });
   }

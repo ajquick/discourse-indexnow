@@ -9,7 +9,9 @@ Automatically submit Discourse topic URLs to the [IndexNow](https://www.indexnow
 ## Features
 
 - Submit new public topics and topic-changing edits automatically.
+- Submit topic URLs when a topic is destroyed so IndexNow-aware engines can recheck them and remove them faster.
 - Include localized topic URLs when Discourse Content Localization and its crawler locale parameter are enabled.
+- Submit localized URLs when a translation is created, including translations completed after the initial topic submission.
 - Submit the main topic URL and all existing localizations in one IndexNow `urlList` batch.
 - Reuse the same batching engine for historical backfills, with automatic 10,000-URL chunks.
 - Apply hourly and daily submission limits, and honor IndexNow `Retry-After` responses.
@@ -66,6 +68,7 @@ Automatically submit Discourse topic URLs to the [IndexNow](https://www.indexnow
 | `indexnow_submit_on_create` | `true` | Submit new topics. |
 | `indexnow_submit_on_edit` | `true` | Submit first-post and topic-changing edits. |
 | `indexnow_excluded_category_ids` | `""` | Additional category denylist. |
+| `indexnow_excluded_tag_names` | `""` | Additional tag denylist. |
 | `indexnow_hourly_limit` | `200` | Maximum URLs submitted per hour. |
 | `indexnow_daily_limit` | `10000` | Maximum URLs submitted per day. |
 
@@ -101,7 +104,7 @@ The panel under **Admin > Plugins > discourse-indexnow** includes:
 - Failure breakdowns for rate limits, key errors, domain mismatches, and other errors.
 - Historical backfill preview and submission by category and date range.
 - Manual URL submission with one URL per line.
-- Batch-aware logs with URL, locale, status, response code, and error filters.
+- Batch-aware logs with URL, locale, status, trigger reason, response code, and error filters.
 - Pagination and one-click key generation.
 
 The page works through both Ember navigation and direct browser visits or hard refreshes.
@@ -113,14 +116,14 @@ Submissions are filtered before enqueueing and re-checked inside the job. The pl
 - Sites requiring login.
 - Private messages.
 - Categories with `read_restricted`.
-- Unlisted and deleted topics.
+- Unlisted topics, and deleted topics outside the deletion notification event.
 - Categories in `indexnow_excluded_category_ids`.
+- Topics carrying a tag in `indexnow_excluded_tag_names`.
 
 The key route is intentionally public, returns 404 for unknown keys, and is limited to 100 requests per minute per IP. Generating a new key immediately invalidates the previous key.
 
 ## Known limitations
 
-- IndexNow has no delete notification, so destroyed topics are recorded as failed audit records only.
 - Google does not participate in IndexNow.
 - Localized URLs are submitted only when Content Localization crawler locale URLs are enabled and content exists.
 

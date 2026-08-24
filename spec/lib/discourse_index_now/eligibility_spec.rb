@@ -9,6 +9,7 @@ describe DiscourseIndexNow::Eligibility do
   before do
     SiteSetting.login_required = false
     SiteSetting.indexnow_excluded_category_ids = ""
+    SiteSetting.indexnow_excluded_tag_names = ""
   end
 
   it "allows a public, listed topic" do
@@ -51,10 +52,38 @@ describe DiscourseIndexNow::Eligibility do
     expect(described_class.eligible?(topic)).to eq(false)
   end
 
+  it "allows a deleted topic for the deletion notification path" do
+    topic.update!(deleted_at: Time.zone.now)
+
+    expect(described_class.eligible_for_deletion?(topic)).to eq(true)
+  end
+
+  it "rejects a deleted private topic for the deletion notification path" do
+    topic.update!(deleted_at: Time.zone.now)
+    category.update!(read_restricted: true)
+
+    expect(described_class.eligible_for_deletion?(topic)).to eq(false)
+  end
+
   it "rejects a topic in an explicitly excluded category" do
     SiteSetting.indexnow_excluded_category_ids = category.id.to_s
 
     expect(described_class.eligible?(topic)).to eq(false)
+  end
+
+  it "rejects a topic carrying an excluded tag" do
+    tag = Fabricate(:tag, name: "internal")
+    topic.tags << tag
+    SiteSetting.indexnow_excluded_tag_names = "internal"
+
+    expect(described_class.eligible?(topic)).to eq(false)
+  end
+
+  it "allows a topic whose tags are not excluded" do
+    topic.tags << Fabricate(:tag, name: "public")
+    SiteSetting.indexnow_excluded_tag_names = "internal"
+
+    expect(described_class.eligible?(topic)).to eq(true)
   end
 
   it "rejects every topic when login is required" do

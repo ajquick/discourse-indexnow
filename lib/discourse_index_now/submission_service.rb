@@ -3,7 +3,6 @@
 module DiscourseIndexNow
   class SubmissionService
     DEBOUNCE_SECONDS = 60
-    DESTROYED_REASON = "topic_destroyed_no_indexnow_delete_support"
     CATEGORY_INELIGIBLE_REASON = "category_moved_ineligible"
     BATCH_SIZE = 10_000
 
@@ -12,7 +11,7 @@ module DiscourseIndexNow
       return unless SiteSetting.indexnow_submit_on_create?
       return unless post.is_first_post?
 
-      enqueue(post.topic)
+      enqueue_topic(post.topic, trigger_reason: :created)
     end
 
     def self.handle_post_edited(post, topic_changed = false)
@@ -20,14 +19,28 @@ module DiscourseIndexNow
       return unless SiteSetting.indexnow_submit_on_edit?
       return unless post.is_first_post? || topic_changed
 
-      enqueue_topic(post.topic)
+      enqueue_topic(post.topic, trigger_reason: :edited)
     end
 
     def self.handle_topic_destroyed(topic)
       return unless SiteSetting.indexnow_enabled?
       return if topic.blank?
+      return unless Eligibility.eligible_for_deletion?(topic)
 
-      mark_topic_logs_failed(topic, DESTROYED_REASON)
+      enqueue_deleted_topic(topic)
+    end
+
+    def self.handle_topic_localization_created(localization)
+      return unless SiteSetting.indexnow_enabled?
+      return if localization.blank?
+
+      topic = localization.topic
+      return if topic.blank?
+      return if SiteSetting.indexnow_api_key.blank?
+      return unless Eligibility.eligible?(topic)
+
+      entry = UrlBuilder.build_locale_url(topic, localization.locale)
+      enqueue_batch([entry].compact, trigger_reason: :created)
     end
 
     def self.handle_topic_changed(topic)
@@ -35,7 +48,7 @@ module DiscourseIndexNow
       return if topic.blank?
 
       if Eligibility.eligible?(topic)
-        enqueue_topic(topic)
+        enqueue_topic(topic, trigger_reason: :category_changed)
       else
         mark_topic_logs_failed(topic, CATEGORY_INELIGIBLE_REASON)
       end
@@ -51,7 +64,9 @@ module DiscourseIndexNow
       if category.read_restricted?
         topics.find_each { |topic| mark_topic_logs_failed(topic, "category_restricted") }
       else
-        topics.find_each { |topic| enqueue_topic(topic, localized: false) }
+        topics.find_each do |topic|
+          enqueue_topic(topic, localized: false, trigger_reason: :category_changed)
+        end
       end
     end
 
@@ -59,7 +74,9 @@ module DiscourseIndexNow
       return unless SiteSetting.indexnow_enabled?
       return if tag.blank?
 
-      tag.topics.find_each { |topic| enqueue_topic(topic, localized: false) }
+      tag.topics.find_each do |topic|
+        enqueue_topic(topic, localized: false, trigger_reason: :edited)
+      end
     end
 
     def self.disable_if_login_required!
@@ -70,7 +87,7 @@ module DiscourseIndexNow
       enqueue_topic(topic)
     end
 
-    def self.enqueue_topic(topic, localized: true)
+    def self.enqueue_topic(topic, localized: true, trigger_reason: :created)
       return if topic.blank?
       return if SiteSetting.indexnow_api_key.blank?
       return unless Eligibility.eligible?(topic)
@@ -79,10 +96,20 @@ module DiscourseIndexNow
       return unless Discourse.redis.set(key, "1", nx: true, ex: DEBOUNCE_SECONDS)
 
       entries = build_url_entries(topic, localized: localized)
-      enqueue_batch(entries, topic_id: topic.id)
+      enqueue_batch(
+        entries,
+        topic_id: topic.id,
+        trigger_reason: trigger_reason,
+      )
     end
 
-    def self.enqueue_batch(entries, topic_id: nil, source: nil, batch_id: SecureRandom.uuid)
+    def self.enqueue_batch(
+      entries,
+      topic_id: nil,
+      source: nil,
+      trigger_reason: :created,
+      batch_id: SecureRandom.uuid
+    )
       entries =
         Array(entries).filter_map do |entry|
           if entry.is_a?(String)
@@ -103,6 +130,7 @@ module DiscourseIndexNow
               batch_id: batch_id,
               batch_index: batch_index,
               status: :pending,
+              trigger_reason: trigger_reason,
             )
           end
 
@@ -124,6 +152,16 @@ module DiscourseIndexNow
         result[:job_count] += chunk_result[:job_count]
         result
       end
+    end
+
+    def self.enqueue_deleted_topic(topic)
+      return if SiteSetting.indexnow_api_key.blank?
+
+      mark_topic_logs_failed(topic, "topic_destroyed")
+      enqueue_batch(
+        UrlBuilder.build_urls(topic),
+        trigger_reason: :deleted,
+      )
     end
 
     def self.debounce_key(topic_or_id)

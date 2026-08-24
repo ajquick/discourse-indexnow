@@ -4,14 +4,15 @@ module DiscourseIndexNow
   class Eligibility
     def self.eligible?(topic)
       return false if topic.blank?
-      return false if SiteSetting.login_required?
-      return false if topic.archetype == Archetype.private_message
-      return false if Category.find_by(id: topic.category_id)&.read_restricted
-      return false unless topic.visible
       return false if topic.deleted_at.present?
-      return false if excluded_category_ids.include?(topic.category_id)
 
-      true
+      base_eligible?(topic)
+    end
+
+    def self.eligible_for_deletion?(topic)
+      return false if topic.blank? || topic.deleted_at.blank?
+
+      base_eligible?(topic)
     end
 
     # Locale variants share the topic and category visibility rules. Keeping
@@ -30,5 +31,27 @@ module DiscourseIndexNow
         .map(&:to_i)
         .reject(&:zero?)
     end
-  end
+
+    def self.excluded_tag?(topic)
+      excluded = excluded_tag_names
+      return false if excluded.empty?
+
+      (topic.tags.pluck(:name) & excluded).any?
+    end
+
+    def self.excluded_tag_names
+      SiteSetting.indexnow_excluded_tag_names_map.map(&:strip).reject(&:blank?).uniq
+    end
+
+    def self.base_eligible?(topic)
+      return false if SiteSetting.login_required?
+      return false if topic.archetype == Archetype.private_message
+      return false if Category.find_by(id: topic.category_id)&.read_restricted
+      return false unless topic.visible
+      return false if excluded_category_ids.include?(topic.category_id)
+      return false if excluded_tag?(topic)
+
+      true
+    end
+end
 end

@@ -9,7 +9,9 @@
 ## 功能特性
 
 - 新公开话题和会改变话题属性的编辑会自动提交。
+- 话题删除时提交话题 URL，让支持 IndexNow 的搜索引擎更快复查并下架内容。
 - 在 Discourse Content Localization 及其爬虫 locale 参数启用时，自动包含本地化话题 URL。
+- 翻译创建时提交本地化 URL，包括首次提交话题后才完成的翻译。
 - 把主 URL 和实际存在的本地化内容合并为一次 IndexNow `urlList` 批量提交。
 - 历史帖子补量复用同一套批量引擎，并自动按 10,000 条上限分片。
 - 支持每小时和每日提交上限，并识别 IndexNow 的 `Retry-After` 响应。
@@ -66,6 +68,7 @@
 | `indexnow_submit_on_create` | `true` | 新话题发布时提交。 |
 | `indexnow_submit_on_edit` | `true` | 首帖或话题属性变化后重新提交。 |
 | `indexnow_excluded_category_ids` | `""` | 额外排除的分类。 |
+| `indexnow_excluded_tag_names` | `""` | 额外排除的标签。 |
 | `indexnow_hourly_limit` | `200` | 每小时最多提交的 URL 数。 |
 | `indexnow_daily_limit` | `10000` | 每天最多提交的 URL 数。 |
 
@@ -101,7 +104,7 @@ Redis 计数器负责每小时和每日限额。收到 IndexNow 429 时，如果
 - 限流、密钥错误、域名不匹配和其他错误的分类统计。
 - 按分类和日期范围预览、提交历史帖子。
 - 手动提交 URL，每行一个链接。
-- 带批次信息的日志，可按 URL、locale、状态、响应码和错误信息过滤。
+- 带批次信息的日志，可按 URL、locale、状态、触发原因、响应码和错误信息过滤。
 - 分页和一键生成密钥。
 
 该页面在 Ember 内部跳转、直接输入 URL 和硬刷新时都能正常渲染。
@@ -113,14 +116,14 @@ Redis 计数器负责每小时和每日限额。收到 IndexNow 429 时，如果
 - 需要登录的站点。
 - 私信。
 - 设置 `read_restricted` 的分类。
-- 未列出或已删除的话题。
+- 未列出话题，以及删除通知事件之外的已删除话题。
 - 位于 `indexnow_excluded_category_ids` 中的分类。
+- 带有 `indexnow_excluded_tag_names` 中任意标签的话题。
 
 密钥路由按协议要求公开，未知密钥返回 404，并限制每个 IP 每分钟最多 100 次请求。生成新密钥后，旧密钥立即失效。
 
 ## 已知限制
 
-- IndexNow 没有删除通知接口，话题删除时只记录审计日志。
 - Google 未参与 IndexNow 协议。
 - 只有 Content Localization 爬虫 locale URL 启用且本地化内容存在时，才会提交本地化 URL。
 

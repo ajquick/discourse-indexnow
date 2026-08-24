@@ -10,6 +10,15 @@ module DiscourseIndexNow
       failed: 2,
     }
 
+    enum :trigger_reason, {
+      created: 0,
+      edited: 1,
+      deleted: 2,
+      category_changed: 3,
+      backfill: 4,
+      manual: 5,
+    }
+
     validates :url, presence: true
     validates :batch_index, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
     validates :locale, length: { maximum: 20 }, allow_nil: true
@@ -26,6 +35,7 @@ end
 #  locale        :string(20)
 #  response_code :integer
 #  status        :integer          default("pending"), not null
+#  trigger_reason :integer          default("created"), not null
 #  url           :string           not null
 #  created_at    :datetime         not null
 #  updated_at    :datetime         not null

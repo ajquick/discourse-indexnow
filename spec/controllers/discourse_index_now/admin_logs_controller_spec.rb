@@ -11,6 +11,7 @@ describe DiscourseIndexNow::AdminLogsController, type: :request do
     SiteSetting.indexnow_enabled = true
     SiteSetting.login_required = false
     SiteSetting.indexnow_api_key = "a" * 32
+    SiteSetting.indexnow_excluded_tag_names = ""
     allow(DiscourseIndexNow::KeyAccessibility).to receive(:check).and_return(true)
     sign_in(admin)
   end
@@ -38,6 +39,7 @@ describe DiscourseIndexNow::AdminLogsController, type: :request do
       expect(response.status).to eq(200)
       json = response.parsed_body
       expect(json["logs"].size).to eq(1)
+      expect(json["logs"].first["trigger_reason"]).to eq("created")
       expect(json["meta"]["total_count"]).to eq(2)
       expect(json["stats"]["key_accessible"]).to eq(true)
     end
@@ -140,6 +142,18 @@ describe DiscourseIndexNow::AdminLogsController, type: :request do
       expect(json["matched_topics"]).to eq(1)
       expect(json["urls"]).not_to include(restricted_topic.url)
     end
+
+    it "excludes topics carrying an excluded tag" do
+      excluded_tag = Fabricate(:tag, name: "internal")
+      topic.tags << excluded_tag
+      SiteSetting.indexnow_excluded_tag_names = "internal"
+
+      get "/admin/plugins/discourse-indexnow/backfill/preview.json"
+
+      json = response.parsed_body
+      expect(json["matched_topics"]).to eq(0)
+      expect(json["urls"]).not_to include(topic.url)
+    end
   end
 
   describe "#backfill" do
@@ -147,6 +161,7 @@ describe DiscourseIndexNow::AdminLogsController, type: :request do
       allow(DiscourseIndexNow::SubmissionService).to receive(:enqueue_batch).with(
         [{ url: topic.url, locale: nil }],
         source: "backfill",
+        trigger_reason: :backfill,
       ).and_return(
         batch_id: "batch-1",
         submitted_count: 1,
@@ -169,6 +184,7 @@ describe DiscourseIndexNow::AdminLogsController, type: :request do
       expect(DiscourseIndexNow::SubmissionService).to have_received(:enqueue_batch).with(
         [{ url: topic.url, locale: nil }],
         source: "backfill",
+        trigger_reason: :backfill,
       )
     end
   end
@@ -178,6 +194,7 @@ describe DiscourseIndexNow::AdminLogsController, type: :request do
       allow(DiscourseIndexNow::SubmissionService).to receive(:enqueue_batch).with(
         [{ url: topic.url, locale: nil }],
         source: "manual",
+        trigger_reason: :manual,
       ).and_return(
         batch_id: "batch-manual-1",
         submitted_count: 1,
@@ -197,6 +214,7 @@ describe DiscourseIndexNow::AdminLogsController, type: :request do
       expect(DiscourseIndexNow::SubmissionService).to have_received(:enqueue_batch).with(
         [{ url: topic.url, locale: nil }],
         source: "manual",
+        trigger_reason: :manual,
       )
     end
 
@@ -234,6 +252,7 @@ describe DiscourseIndexNow::AdminLogsController, type: :request do
       allow(DiscourseIndexNow::SubmissionService).to receive(:enqueue_batch).with(
         [{ url: topic.url, locale: nil }],
         source: "manual",
+        trigger_reason: :manual,
       ).and_return(
         batch_id: "batch-manual-2",
         submitted_count: 1,
@@ -250,6 +269,7 @@ describe DiscourseIndexNow::AdminLogsController, type: :request do
       expect(DiscourseIndexNow::SubmissionService).to have_received(:enqueue_batch).with(
         [{ url: topic.url, locale: nil }],
         source: "manual",
+        trigger_reason: :manual,
       )
     end
 
@@ -258,6 +278,7 @@ describe DiscourseIndexNow::AdminLogsController, type: :request do
       allow(DiscourseIndexNow::SubmissionService).to receive(:enqueue_batch).with(
         [{ url: url, locale: nil }],
         source: "manual",
+        trigger_reason: :manual,
       ).and_return(
         batch_id: "batch-manual-3",
         submitted_count: 1,
@@ -274,6 +295,7 @@ describe DiscourseIndexNow::AdminLogsController, type: :request do
       expect(DiscourseIndexNow::SubmissionService).to have_received(:enqueue_batch).with(
         [{ url: url, locale: nil }],
         source: "manual",
+        trigger_reason: :manual,
       )
     end
   end

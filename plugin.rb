@@ -34,6 +34,11 @@ after_initialize do
   require_relative "lib/discourse_index_now/throttle"
   require_relative "lib/discourse_index_now/url_builder"
   require_relative "lib/discourse_index_now/submission_service"
+
+  add_model_callback(TopicLocalization, :after_commit, on: :create) do
+    DiscourseIndexNow::SubmissionService.handle_topic_localization_created(self)
+  end
+
   on(:post_created) { |post| DiscourseIndexNow::SubmissionService.handle_post_created(post) }
 
   on(:post_edited) do |post, topic_changed, _revisor|

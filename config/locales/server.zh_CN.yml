@@ -5,6 +5,7 @@ zh_CN:
     indexnow_submit_on_create: "提交新话题到 IndexNow"
     indexnow_submit_on_edit: "重新提交编辑后的首帖到 IndexNow"
     indexnow_excluded_category_ids: "永不提交到 IndexNow 的分类"
+    indexnow_excluded_tag_names: "永不提交到 IndexNow 的标签"
     indexnow_hourly_limit: "每小时提交到 IndexNow 的 URL 上限"
     indexnow_daily_limit: "每天提交到 IndexNow 的 URL 上限"
     errors:
