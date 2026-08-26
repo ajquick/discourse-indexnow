@@ -10,17 +10,20 @@ describe AddCancelledToIndexnowSubmissionLogs do
   let(:migration) { described_class.new }
 
   it "adds and removes the status check constraint" do
+    migration.down
     migration.up
     expect(
       DB.query_single(
-        "SELECT 1 FROM pg_constraint WHERE conname = 'indexnow_submission_logs_status_check'",
+        "SELECT 1 FROM pg_constraint WHERE conname = 'indexnow_submission_logs_status_check' " \
+        "AND conrelid = 'indexnow_submission_logs'::regclass",
       ),
     ).to eq([1])
 
     migration.down
     expect(
       DB.query_single(
-        "SELECT 1 FROM pg_constraint WHERE conname = 'indexnow_submission_logs_status_check'",
+        "SELECT 1 FROM pg_constraint WHERE conname = 'indexnow_submission_logs_status_check' " \
+        "AND conrelid = 'indexnow_submission_logs'::regclass",
       ),
     ).to be_empty
   end
