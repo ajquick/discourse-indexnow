@@ -15,6 +15,13 @@ describe DiscourseIndexNow::SubmissionLog do
     expect(log).to be_failed
   end
 
+  it "supports the cancelled status" do
+    log = described_class.create!(url: "https://forum.example.com/t/hello/1", status: :pending)
+
+    log.cancelled!
+    expect(log).to be_cancelled
+  end
+
   it "stores batch metadata and the locale for each URL" do
     log =
       described_class.create!(

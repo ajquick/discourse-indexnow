@@ -18,5 +18,7 @@ Discourse::Application.routes.append do
     get "/backfill/preview.json" => "admin_logs#backfill_preview"
     post "/backfill.json" => "admin_logs#backfill"
     post "/submit_urls.json" => "admin_logs#submit_urls"
+    post "/cancel_pending.json" => "admin_logs#cancel_pending"
+    delete "/logs.json" => "admin_logs#destroy_filtered"
   end
 end

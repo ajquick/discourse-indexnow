@@ -114,6 +114,87 @@ describe DiscourseIndexNow::AdminLogsController, type: :request do
     end
   end
 
+  describe "#cancel_pending" do
+    it "cancels only pending logs matching the current filters" do
+      pending_log =
+        DiscourseIndexNow::SubmissionLog.create!(
+          url: "https://forum.example.com/t/one/1",
+          batch_id: "batch-1",
+          status: :pending,
+        )
+      failed_log =
+        DiscourseIndexNow::SubmissionLog.create!(
+          url: "https://forum.example.com/t/one/1?tl=es",
+          locale: "es",
+          batch_id: "batch-1",
+          status: :failed,
+          error_message: "HTTP 429",
+        )
+      other_batch_log =
+        DiscourseIndexNow::SubmissionLog.create!(
+          url: "https://forum.example.com/t/two/2",
+          batch_id: "batch-2",
+          status: :pending,
+        )
+
+      post "/admin/plugins/discourse-indexnow/cancel_pending.json",
+           params: {
+             batch_id: "batch-1",
+           }
+
+      expect(response.status).to eq(200)
+      expect(response.parsed_body["cancelled_count"]).to eq(1)
+      expect(pending_log.reload).to be_cancelled
+      expect(pending_log.error_message).to eq("cancelled_by_admin")
+      expect(failed_log.reload).to be_failed
+      expect(other_batch_log.reload).to be_pending
+    end
+
+    it "does not cancel logs when the status filter excludes pending logs" do
+      log =
+        DiscourseIndexNow::SubmissionLog.create!(
+          url: "https://forum.example.com/t/one/1",
+          status: :pending,
+        )
+
+      post "/admin/plugins/discourse-indexnow/cancel_pending.json",
+           params: {
+             status: "success",
+           }
+
+      expect(response.status).to eq(200)
+      expect(response.parsed_body["cancelled_count"]).to eq(0)
+      expect(log.reload).to be_pending
+    end
+  end
+
+  describe "#destroy_filtered" do
+    it "deletes only logs matching the current filters" do
+      retained =
+        DiscourseIndexNow::SubmissionLog.create!(
+          url: "https://forum.example.com/t/one/1",
+          batch_id: "batch-1",
+          status: :success,
+        )
+      deleted =
+        DiscourseIndexNow::SubmissionLog.create!(
+          url: "https://forum.example.com/t/two/2",
+          batch_id: "batch-2",
+          status: :failed,
+        )
+
+      delete "/admin/plugins/discourse-indexnow/logs.json",
+             params: {
+               status: "failed",
+             }
+
+      expect(response.status).to eq(200)
+      expect(response.parsed_body["deleted_count"]).to eq(1)
+      expect(DiscourseIndexNow::SubmissionLog.exists?(deleted.id)).to be(false)
+      expect(retained.reload).to be_success
+    end
+  end
+
   describe "#backfill_preview" do
     it "previews eligible topics and localized URLs without submitting" do
       allow(ContentLocalization).to receive(:crawler_locale_param_enabled?).and_return(true)

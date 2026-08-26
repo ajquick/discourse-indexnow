@@ -22,12 +22,34 @@
 .status-filters,
 .url-search,
 .indexnow-pagination,
-.indexnow-backfill-controls,
 .indexnow-chart-legend {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
+}
+
+.indexnow-backfill-controls {
+  display: grid;
+  grid-template-columns:
+    minmax(11rem, 1.4fr)
+    minmax(9rem, 1fr)
+    minmax(9rem, 1fr)
+    auto
+    auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.indexnow-backfill-controls > * {
+  min-width: 0;
+  width: 100%;
+}
+
+@media (max-width: 700px) {
+  .indexnow-backfill-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .indexnow-charts {
@@ -217,5 +239,9 @@
 }
 
 .indexnow-status-pending {
+  color: var(--primary-medium);
+}
+
+.indexnow-status-cancelled {
   color: var(--primary-medium);
 }

@@ -12,6 +12,23 @@ describe "Discourse IndexNow logs routes", type: :request do
     sign_in(admin)
   end
 
+  it "rejects log mutations for non-admin users" do
+    sign_in(Fabricate(:user))
+
+    expect {
+      post "/admin/plugins/discourse-indexnow/cancel_pending.json"
+    }.not_to change { DiscourseIndexNow::SubmissionLog.count }
+
+    expect(response.status).to eq(404)
+    expect(response.parsed_body["errors"]).to be_present
+
+    expect {
+      delete "/admin/plugins/discourse-indexnow/logs.json"
+    }.not_to change { DiscourseIndexNow::SubmissionLog.count }
+
+    expect(response.status).to eq(404)
+  end
+
   it "renders the admin HTML shell for direct visits and hard refreshes" do
     get "/admin/plugins/discourse-indexnow/logs"
 

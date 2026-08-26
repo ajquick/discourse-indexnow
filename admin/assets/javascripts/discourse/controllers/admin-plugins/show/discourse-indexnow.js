@@ -1,6 +1,7 @@
 import { tracked } from "@glimmer/tracking";
 import Controller from "@ember/controller";
 import { action } from "@ember/object";
+import { service } from "@ember/service";
 import { trustHTML } from "@ember/template";
 import { ajax } from "discourse/lib/ajax";
 import { popupAjaxError } from "discourse/lib/ajax-error";
@@ -11,6 +12,8 @@ const TREND_DAY_WIDTH = 40;
 const TREND_BAR_HEIGHT = 72;
 
 export default class AdminPluginsShowDiscourseIndexNowController extends Controller {
+  @service dialog;
+
   @tracked data = null;
   @tracked status = "";
   @tracked url = "";
@@ -130,6 +133,11 @@ export default class AdminPluginsShowDiscourseIndexNowController extends Control
   }
 
   @action
+  async filterCancelled() {
+    await this.setStatus("cancelled");
+  }
+
+  @action
   updateUrl(value) {
     this.url = value;
     this.page = 1;
@@ -195,17 +203,7 @@ export default class AdminPluginsShowDiscourseIndexNowController extends Control
       per_page: PER_PAGE,
     };
 
-    if (this.status) {
-      data.status = this.status;
-    }
-
-    if (this.url) {
-      data.url = this.url;
-    }
-
-    if (this.batchId) {
-      data.batch_id = this.batchId;
-    }
+    Object.assign(data, this.logFilterParams);
 
     try {
       this.data = await ajax("/admin/plugins/discourse-indexnow/logs.json", {
@@ -218,19 +216,37 @@ export default class AdminPluginsShowDiscourseIndexNowController extends Control
     }
   }
 
+  get logFilterParams() {
+    const data = {};
+
+    if (this.status) {
+      data.status = this.status;
+    }
+
+    if (this.url) {
+      data.url = this.url;
+    }
+
+    if (this.batchId) {
+      data.batch_id = this.batchId;
+    }
+
+    return data;
+  }
+
   @action
   setBackfillCategory(event) {
     this.backfillCategoryId = event.target.value;
   }
 
   @action
-  setBackfillSince(event) {
-    this.backfillSince = event.target.value;
+  setBackfillSince(value) {
+    this.backfillSince = value ? value.format("YYYY-MM-DD") : "";
   }
 
   @action
-  setBackfillUntil(event) {
-    this.backfillUntil = event.target.value;
+  setBackfillUntil(value) {
+    this.backfillUntil = value ? value.format("YYYY-MM-DD") : "";
   }
 
   get backfillParams() {
@@ -316,6 +332,47 @@ export default class AdminPluginsShowDiscourseIndexNowController extends Control
       popupAjaxError(error);
     } finally {
       this.manualLoading = false;
+    }
+  }
+
+  @action
+  cancelPending() {
+    this.dialog.confirm({
+      message: i18n("discourse_index_now.admin.cancel_pending_confirm"),
+      didConfirm: () => this.destroyLogs("cancel"),
+    });
+  }
+
+  @action
+  deleteLogs() {
+    this.dialog.deleteConfirm({
+      message: i18n("discourse_index_now.admin.delete_logs_confirm"),
+      didConfirm: () => this.destroyLogs("delete"),
+    });
+  }
+
+  async destroyLogs(operation) {
+    this.loading = true;
+
+    try {
+      if (operation === "cancel") {
+        await ajax("/admin/plugins/discourse-indexnow/cancel_pending.json", {
+          type: "POST",
+          data: this.logFilterParams,
+        });
+      } else {
+        await ajax("/admin/plugins/discourse-indexnow/logs.json", {
+          type: "DELETE",
+          data: this.logFilterParams,
+        });
+      }
+
+      this.page = 1;
+      await this.load();
+    } catch (error) {
+      popupAjaxError(error);
+    } finally {
+      this.loading = false;
     }
   }
 }

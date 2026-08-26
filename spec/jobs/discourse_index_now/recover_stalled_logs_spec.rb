@@ -84,6 +84,21 @@ describe Jobs::DiscourseIndexNow::RecoverStalledLogs, type: :job do
     expect(Jobs).not_to have_received(:enqueue)
   end
 
+  it "does not re-enqueue cancelled batches" do
+    DiscourseIndexNow::SubmissionLog.create!(
+      url: topic.url,
+      batch_id: batch_id,
+      batch_index: 1,
+      status: :cancelled,
+      error_message: "cancelled_by_admin",
+      created_at: 31.minutes.ago,
+    )
+
+    described_class.new.execute
+
+    expect(Jobs).not_to have_received(:enqueue)
+  end
+
   it "does nothing when the plugin is disabled" do
     SiteSetting.indexnow_enabled = false
     DiscourseIndexNow::SubmissionLog.create!(

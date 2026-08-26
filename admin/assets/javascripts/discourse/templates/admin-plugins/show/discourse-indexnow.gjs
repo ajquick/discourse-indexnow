@@ -1,6 +1,7 @@
 import { on } from "@ember/modifier";
 import DButton from "discourse/ui-kit/d-button";
 import DConditionalLoadingSpinner from "discourse/ui-kit/d-conditional-loading-spinner";
+import DDateInput from "discourse/ui-kit/d-date-input";
 import DExpandingTextArea from "discourse/ui-kit/d-expanding-text-area";
 import DTextField from "discourse/ui-kit/d-text-field";
 import dAgeWithTooltip from "discourse/ui-kit/helpers/d-age-with-tooltip";
@@ -117,15 +118,13 @@ export default <template>
           {{/each}}
         </select>
 
-        <input
-          type="date"
-          value={{@controller.backfillSince}}
-          {{on "input" @controller.setBackfillSince}}
+        <DDateInput
+          @date={{@controller.backfillSince}}
+          @onChange={{@controller.setBackfillSince}}
         />
-        <input
-          type="date"
-          value={{@controller.backfillUntil}}
-          {{on "input" @controller.setBackfillUntil}}
+        <DDateInput
+          @date={{@controller.backfillUntil}}
+          @onChange={{@controller.setBackfillUntil}}
         />
 
         <DButton
@@ -206,6 +205,10 @@ export default <template>
           @label="discourse_index_now.admin.filter_failed"
           @action={{@controller.filterFailed}}
         />
+        <DButton
+          @label="discourse_index_now.admin.filter_cancelled"
+          @action={{@controller.filterCancelled}}
+        />
       </div>
 
       <div class="url-search">
@@ -222,6 +225,16 @@ export default <template>
         <DButton
           @label="discourse_index_now.admin.search"
           @action={{@controller.search}}
+          @disabled={{@controller.loading}}
+        />
+        <DButton
+          @label="discourse_index_now.admin.cancel_pending"
+          @action={{@controller.cancelPending}}
+          @disabled={{@controller.loading}}
+        />
+        <DButton
+          @label="discourse_index_now.admin.delete_logs"
+          @action={{@controller.deleteLogs}}
           @disabled={{@controller.loading}}
         />
       </div>

@@ -54,6 +54,17 @@ describe Jobs::DiscourseIndexNow::SubmitBatch do
     expect(logs.first.response_code).to eq(202)
   end
 
+  it "does not submit cancelled logs" do
+    logs.each { |log| log.update!(status: :cancelled, error_message: "cancelled_by_admin") }
+
+    allow(DiscourseIndexNow::Client).to receive(:submit_batch)
+
+    described_class.new.execute(batch_id: batch_id, batch_index: 1, topic_id: topic.id)
+
+    expect(DiscourseIndexNow::Client).not_to have_received(:submit_batch)
+    logs.each { |log| expect(log.reload).to be_cancelled }
+  end
+
   it "marks logs failed and raises after a failed batch submission" do
     allow(DiscourseIndexNow::Client).to receive(:submit_batch).and_return(
       success: false,

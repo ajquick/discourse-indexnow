@@ -31,6 +31,23 @@ module DiscourseIndexNow
              }
     end
 
+    def cancel_pending
+      cancelled_count =
+        filtered_logs.where(status: :pending).update_all(
+          status: SubmissionLog.statuses[:cancelled],
+          error_message: "cancelled_by_admin",
+          updated_at: Time.zone.now,
+        )
+
+      render json: { cancelled_count: cancelled_count }
+    end
+
+    def destroy_filtered
+      deleted_count = filtered_logs.delete_all
+
+      render json: { deleted_count: deleted_count }
+    end
+
     def generate_key
       SiteSetting.indexnow_api_key = SecureRandom.hex(16)
       render json: {
@@ -90,6 +107,14 @@ module DiscourseIndexNow
     end
 
     private
+
+    def filtered_logs
+      scope = SubmissionLog.all
+      scope = scope.where(status: status_value) unless status_value.nil?
+      scope = scope.where("url ILIKE ?", "%#{url_filter}%") if url_filter.present?
+      scope = scope.where(batch_id: batch_id_filter) if batch_id_filter.present?
+      scope
+    end
 
     def status_value
       value = params[:status].presence
