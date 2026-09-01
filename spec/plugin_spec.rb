@@ -84,7 +84,7 @@ describe ::DiscourseIndexNow do
     route_map =
       File.read(
         Rails.root.join(
-          "plugins/discourse-indexnow/assets/javascripts/discourse/admin-indexnow-route-map.js",
+          "plugins/discourse-indexnow/admin/assets/javascripts/discourse/admin-indexnow-route-map.js",
         ),
       )
 
@@ -98,14 +98,29 @@ describe ::DiscourseIndexNow do
     expect(route_map).to include('this.route("discourse-indexnow", { path: "logs" })')
   end
 
-  it "registers the admin nav under the conventional initializer path" do
-    # Plugin initializers live in assets/javascripts/discourse/initializers/;
-    # that is where every bundled plugin puts them.
+  # Core's adminPlugins.show.index route unconditionally replaceWith()s the first
+  # non-settings link in the plugin's config nav. If that nav entry is registered
+  # while its route is not, every visit to the plugin's admin page throws
+  # "There is no route named ..." and Ember retries, growing the DOM until the
+  # browser tab dies.
+  #
+  # mapRoutes() skips a `resource:` route map silently when
+  # tree.findPath("admin.adminPlugins.show") misses, so the route map has to load
+  # in the same bundle as the nav entry that points at it. Both live under admin/,
+  # which is loaded in lockstep with core's admin bundle that defines that node.
+  it "keeps the nav entry and the route map it points at in the same bundle" do
+    admin_bundle = "plugins/discourse-indexnow/admin/assets/javascripts/discourse"
+
+    expect(Rails.root.join("#{admin_bundle}/admin-indexnow-route-map.js")).to exist
     expect(
       Rails.root.join(
-        "plugins/discourse-indexnow/assets/javascripts/discourse/initializers/indexnow-admin-plugin-configuration-nav.js",
+        "#{admin_bundle}/initializers/indexnow-admin-plugin-configuration-nav.js",
       ),
     ).to exist
+
+    # Nothing may remain in the main bundle: a nav entry shipped to the forum
+    # bundle can outlive the admin-only route map it references.
+    expect(Dir.glob(Rails.root.join("plugins/discourse-indexnow/assets/javascripts/**/*"))).to be_empty
   end
 
   it "keeps the admin stylesheet out of the public forum bundle" do
