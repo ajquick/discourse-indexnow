@@ -5,6 +5,7 @@ module DiscourseIndexNow
     DEBOUNCE_SECONDS = 60
     CATEGORY_INELIGIBLE_REASON = "category_moved_ineligible"
     BATCH_SIZE = 10_000
+    RESUBMIT_BATCH_SIZE = 1_000
 
     def self.handle_post_created(post)
       return unless SiteSetting.indexnow_enabled?
@@ -60,24 +61,65 @@ module DiscourseIndexNow
       return if category.blank?
       return unless category.saved_change_to_read_restricted?
 
-      topics = Topic.where(category_id: category.id)
-
-      if category.read_restricted?
-        topics.find_each { |topic| mark_topic_logs_failed(topic, "category_restricted") }
-      else
-        topics.find_each do |topic|
-          enqueue_topic(topic, localized: false, trigger_reason: :category_changed)
-        end
-      end
+      Jobs.enqueue(
+        Jobs::DiscourseIndexNow::ResubmitTopics,
+        category_id: category.id,
+        mode: category.read_restricted? ? "revoke" : "submit",
+        trigger_reason: "category_changed",
+      )
     end
 
     def self.handle_tag_updated(tag)
       return unless SiteSetting.indexnow_enabled?
       return if tag.blank?
 
-      tag.topics.find_each do |topic|
-        enqueue_topic(topic, localized: false, trigger_reason: :edited)
+      Jobs.enqueue(
+        Jobs::DiscourseIndexNow::ResubmitTopics,
+        tag_id: tag.id,
+        mode: "submit",
+        trigger_reason: "edited",
+      )
+    end
+
+    # Bulk counterpart to enqueue_topic, run from Jobs::DiscourseIndexNow::ResubmitTopics.
+    #
+    # Collects URLs in batches and hands each batch to enqueue_batch, which chunks at
+    # the 10,000-URL protocol limit. One category or tag therefore costs a handful of
+    # submission jobs rather than one per topic. enqueue_batch already skips URLs that
+    # are still pending, so the per-topic redis debounce is not needed here.
+    def self.resubmit_topics(
+      category_id: nil,
+      tag_id: nil,
+      mode: "submit",
+      trigger_reason: :category_changed
+    )
+      scope = resubmit_scope(category_id: category_id, tag_id: tag_id)
+      return if scope.nil?
+
+      if mode == "revoke"
+        reason = category_id.present? ? "category_restricted" : "tag_ineligible"
+        scope.find_each(batch_size: RESUBMIT_BATCH_SIZE) { |topic| mark_topic_logs_failed(topic, reason) }
+        return
       end
+
+      return if SiteSetting.indexnow_api_key.blank?
+
+      scope.find_in_batches(batch_size: RESUBMIT_BATCH_SIZE) do |topics|
+        entries =
+          topics.filter_map do |topic|
+            { url: topic.url, locale: nil } if Eligibility.eligible?(topic)
+          end
+        next if entries.blank?
+
+        enqueue_batch(entries, trigger_reason: trigger_reason)
+      end
+    end
+
+    def self.resubmit_scope(category_id: nil, tag_id: nil)
+      return Topic.where(category_id: category_id) if category_id.present?
+      return Tag.find_by(id: tag_id)&.topics if tag_id.present?
+
+      nil
     end
 
     def self.disable_if_login_required!

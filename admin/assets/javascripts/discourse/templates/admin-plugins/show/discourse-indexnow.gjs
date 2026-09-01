@@ -190,7 +190,7 @@ export default <template>
     </section>
 
     <section class="indexnow-controls">
-      <div class="status-filters">
+      <div class="indexnow-status-filters">
         <DButton
           @label="discourse_index_now.admin.filter_all"
           @action={{@controller.filterAll}}
@@ -213,7 +213,7 @@ export default <template>
         />
       </div>
 
-      <div class="url-search">
+      <div class="indexnow-url-search">
         <DTextField
           @value={{@controller.url}}
           @placeholderKey="discourse_index_now.admin.url_placeholder"

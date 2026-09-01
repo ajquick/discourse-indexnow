@@ -19,8 +19,8 @@
 }
 
 .indexnow-controls,
-.status-filters,
-.url-search,
+.indexnow-status-filters,
+.indexnow-url-search,
 .indexnow-pagination,
 .indexnow-chart-legend {
   display: flex;
@@ -46,7 +46,7 @@
   width: 100%;
 }
 
-@media (max-width: 700px) {
+@media (width <= 700px) {
   .indexnow-backfill-controls {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -58,7 +58,7 @@
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 1rem;
 
-  @media (max-width: 700px) {
+  @media (width <= 700px) {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -88,7 +88,7 @@
   font-size: 10px;
 }
 
-@media (max-width: 700px) {
+@media (width <= 700px) {
   .indexnow-trend-label--middle {
     display: none;
   }
