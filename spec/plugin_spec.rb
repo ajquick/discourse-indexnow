@@ -140,6 +140,14 @@ describe ::DiscourseIndexNow do
     ).to exist
   end
 
+  it "keeps the admin stylesheet out of the public forum bundle" do
+    header = File.read(Rails.root.join("plugins/discourse-indexnow/plugin.rb"))
+
+    # Without the :admin scope this stylesheet is linked on every forum page for
+    # every visitor, not just the admin panel.
+    expect(header).to include('register_asset "stylesheets/admin.scss", :admin')
+  end
+
   # A key referenced from JS but missing from the locale renders as the literal
   # "[en.js.discourse_index_now.admin.whatever]" in the admin panel, which no
   # test caught until it was noticed by eye. Both shipped locales are checked,
@@ -172,13 +180,5 @@ describe ::DiscourseIndexNow do
       expect(translations.keys).to include(*referenced), "missing #{locale} keys: " \
         "#{(referenced - translations.keys).join(', ')}"
     end
-  end
-
-  it "keeps the admin stylesheet out of the public forum bundle" do
-    header = File.read(Rails.root.join("plugins/discourse-indexnow/plugin.rb"))
-
-    # Without the :admin scope this stylesheet is linked on every forum page for
-    # every visitor, not just the admin panel.
-    expect(header).to include('register_asset "stylesheets/admin.scss", :admin')
   end
 end
