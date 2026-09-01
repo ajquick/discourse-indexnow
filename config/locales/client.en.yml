@@ -14,6 +14,7 @@ en:
         today_success: "Today successful submissions"
         today_failed: "Today failed submissions"
         key_accessible: "key.txt accessible"
+        pending: "Checking…"
         generate_key: "Generate key"
         login_required_disabled: "IndexNow is disabled because the whole site requires login."
         filter_all: "All"

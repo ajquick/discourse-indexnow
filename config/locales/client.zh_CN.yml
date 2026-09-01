@@ -14,6 +14,7 @@ zh_CN:
         today_success: "今日成功提交"
         today_failed: "今日失败提交"
         key_accessible: "key.txt 可访问"
+        pending: "检查中…"
         generate_key: "生成 key"
         login_required_disabled: "站点要求登录，IndexNow 已禁用。"
         filter_all: "全部"

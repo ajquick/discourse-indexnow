@@ -75,8 +75,20 @@ describe ::DiscourseIndexNow do
   it "publishes the finalized plugin metadata" do
     header = File.read(Rails.root.join("plugins/discourse-indexnow/plugin.rb"))
 
-    expect(header).to include("# version: 0.2.0")
+    expect(header).to include("# version: 0.2.2")
     expect(header).to include("# authors: sitetalk.net")
     expect(header).to include("# url: https://github.com/imlotso/discourse-indexnow")
+  end
+
+  it "nests the logs route under the selected plugin without shadowing plugin settings" do
+    route_map =
+      File.read(
+        Rails.root.join(
+          "plugins/discourse-indexnow/assets/javascripts/discourse/admin-indexnow-route-map.js",
+        ),
+      )
+
+    expect(route_map).to include('path: "/plugins/:plugin_id"')
+    expect(route_map).not_to include('path: "/plugins",')
   end
 end
