@@ -2,15 +2,24 @@
 
 module DiscourseIndexNow
   class SubmissionService
-    DEBOUNCE_SECONDS = 60
+    # Fallback for the topic cooldown when the setting is absent, matching the
+    # value this was hardcoded to before it became configurable.
+    DEFAULT_COOLDOWN_MINUTES = 1
     CATEGORY_INELIGIBLE_REASON = "category_moved_ineligible"
     BATCH_SIZE = 10_000
     RESUBMIT_BATCH_SIZE = 1_000
 
     def self.handle_post_created(post)
       return unless SiteSetting.indexnow_enabled?
+
+      # A reply changes the topic page as surely as an edit does, but it is much
+      # higher volume, so it is opt-in and shares the per-topic cooldown.
+      unless post.is_first_post?
+        return unless SiteSetting.indexnow_submit_on_reply?
+        return enqueue_topic(post.topic, trigger_reason: :replied)
+      end
+
       return unless SiteSetting.indexnow_submit_on_create?
-      return unless post.is_first_post?
 
       enqueue_topic(post.topic, trigger_reason: :created)
     end
@@ -136,8 +145,7 @@ module DiscourseIndexNow
       return if SiteSetting.indexnow_api_key.blank?
       return unless Eligibility.eligible?(topic)
 
-      key = debounce_key(topic.id)
-      return unless Discourse.redis.set(key, "1", nx: true, ex: DEBOUNCE_SECONDS)
+      return unless claim_cooldown(topic.id)
 
       entries = build_url_entries(topic, localized: localized)
       enqueue_batch(entries, topic_id: topic.id, trigger_reason: trigger_reason)
@@ -214,6 +222,29 @@ module DiscourseIndexNow
     def self.debounce_key(topic_or_id)
       identifier = topic_or_id.respond_to?(:id) ? topic_or_id.id : topic_or_id
       "indexnow:debounce:topic:#{identifier}"
+    end
+
+    # Shortest gap between automatic submissions of one topic. Every automatic
+    # trigger -- created, edited, replied, category_changed -- shares the key, so
+    # a busy topic costs one submission per window rather than one per event.
+    #
+    # Only automatic triggers go through here. Manual submissions and backfills
+    # call enqueue_batch directly because an admin asked for those explicitly, and
+    # deletion notices bypass it because they must always be delivered.
+    def self.cooldown_seconds
+      minutes = SiteSetting.indexnow_topic_cooldown_minutes
+      minutes = DEFAULT_COOLDOWN_MINUTES if minutes.nil?
+      [minutes.to_i, 0].max * 60
+    end
+
+    # Returns true when this topic may be submitted now, taking the slot if so.
+    # A cooldown of 0 disables the gate; enqueue_batch still drops URLs that are
+    # already pending, so that does not mean duplicate rows.
+    def self.claim_cooldown(topic_id)
+      seconds = cooldown_seconds
+      return true if seconds.zero?
+
+      Discourse.redis.set(debounce_key(topic_id), "1", nx: true, ex: seconds).present?
     end
 
     def self.build_url_entries(topic, localized: true)

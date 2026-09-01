@@ -93,6 +93,81 @@ describe DiscourseIndexNow::SubmissionService do
     end
   end
 
+  describe "replies" do
+    fab!(:reply) { Fabricate(:post, topic: topic, post_number: 2) }
+
+    it "ignores replies by default" do
+      expect { described_class.handle_post_created(reply) }.not_to change(
+        DiscourseIndexNow::SubmissionLog,
+        :count,
+      )
+    end
+
+    it "submits the topic for a reply once enabled" do
+      SiteSetting.indexnow_submit_on_reply = true
+
+      described_class.handle_post_created(reply)
+
+      expect(DiscourseIndexNow::SubmissionLog.pluck(:url)).to contain_exactly(topic.url)
+      expect(DiscourseIndexNow::SubmissionLog.first.trigger_reason).to eq("replied")
+    end
+
+    it "still submits the first post as created, not replied" do
+      SiteSetting.indexnow_submit_on_reply = true
+
+      described_class.handle_post_created(post)
+
+      expect(DiscourseIndexNow::SubmissionLog.first.trigger_reason).to eq("created")
+    end
+  end
+
+  describe "topic cooldown" do
+    fab!(:reply) { Fabricate(:post, topic: topic, post_number: 2) }
+
+    before { SiteSetting.indexnow_submit_on_reply = true }
+
+    # Every automatic trigger shares one key per topic, so a burst of replies
+    # costs one submission per window rather than one per reply.
+    it "collapses repeated activity on one topic into a single submission" do
+      SiteSetting.indexnow_topic_cooldown_minutes = 1440
+
+      3.times { described_class.handle_post_created(reply) }
+      described_class.handle_post_edited(post, false)
+
+      expect(DiscourseIndexNow::SubmissionLog.count).to eq(1)
+    end
+
+    it "sets the cooldown to the configured length" do
+      SiteSetting.indexnow_topic_cooldown_minutes = 1440
+
+      described_class.handle_post_created(reply)
+
+      expect(Discourse.redis.ttl(described_class.debounce_key(topic.id))).to be > 86_000
+    end
+
+    it "does not gate submissions when the cooldown is zero" do
+      SiteSetting.indexnow_topic_cooldown_minutes = 0
+      described_class.handle_post_created(reply)
+      # Settle the first log so the pending-URL guard is not what is being measured.
+      DiscourseIndexNow::SubmissionLog.update_all(
+        status: DiscourseIndexNow::SubmissionLog.statuses[:success],
+      )
+
+      described_class.handle_post_created(reply)
+
+      expect(DiscourseIndexNow::SubmissionLog.count).to eq(2)
+    end
+
+    it "lets a deletion through even while the topic is cooling down" do
+      SiteSetting.indexnow_topic_cooldown_minutes = 1440
+      described_class.handle_post_created(reply)
+
+      described_class.enqueue_deleted_topic(topic)
+
+      expect(DiscourseIndexNow::SubmissionLog.where(trigger_reason: :deleted)).to be_present
+    end
+  end
+
   describe "#handle_post_edited" do
     it "does not submit ordinary non-first-post edits" do
       reply = Fabricate(:post, topic: topic, post_number: 2)
