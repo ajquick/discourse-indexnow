@@ -3,7 +3,7 @@ import { withPluginApi } from "discourse/lib/plugin-api";
 
 const PLUGIN_ID = "discourse-indexnow";
 const LOGS_ROUTE = "adminPlugins.show.discourse-indexnow-logs";
-const LOGS_URL = "/admin/plugins/discourse-indexnow/logs";
+const LOGS_URL = "/admin/plugins/discourse-indexnow/indexnow-logs";
 
 /**
  * Registers the plugin's "Logs" tab in the admin plugin nav, but only once the
