@@ -27,9 +27,14 @@ const LOGS_URL = "/admin/plugins/discourse-indexnow/indexnow-logs";
  *     });
  *
  * so registration cannot be assumed to have worked. The check has to be deferred:
- * at instance-initializer time the router is not set up yet, so it runs as the
- * first transition begins instead. That is still early enough for core to see the
- * nav on that same transition, and core reads it lazily through a getter anyway.
+ * at instance-initializer time the router is not set up yet and hasRoute() throws.
+ *
+ * It also has to be retried rather than made once. Admin routes live in a chunk
+ * that is loaded separately, so on a boot that starts outside the admin panel the
+ * first transition can resolve this URL to core's catch-all simply because those
+ * routes are not in the recognizer yet. Checking once and giving up leaves the tab
+ * permanently missing on a working site. So both edges of a transition are
+ * watched, and the listeners stay attached until the route actually resolves.
  */
 export default {
   name: "indexnow-admin-plugin-configuration-nav",
@@ -46,11 +51,13 @@ export default {
     }
 
     const register = () => {
-      router.off("routeWillChange", register);
-
+      // Keep listening until the route resolves; admin routes may arrive later.
       if (!this.routeExists(router)) {
         return;
       }
+
+      router.off("routeWillChange", register);
+      router.off("routeDidChange", register);
 
       withPluginApi((api) => {
         api.addAdminPluginConfigurationNav(PLUGIN_ID, [
@@ -63,6 +70,7 @@ export default {
     };
 
     router.on("routeWillChange", register);
+    router.on("routeDidChange", register);
   },
 
   /**
