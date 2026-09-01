@@ -44,6 +44,7 @@ en:
         trigger_reason_category_changed: "Category changed"
         trigger_reason_backfill: "Backfill"
         trigger_reason_manual: "Manual"
+        trigger_reason_replied: "Reply"
         previous_page: "Previous"
         next_page: "Next"
         page_info: "Page %{page} of %{total_pages}"
