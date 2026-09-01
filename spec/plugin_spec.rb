@@ -147,4 +147,38 @@ describe ::DiscourseIndexNow do
     # every visitor, not just the admin panel.
     expect(header).to include('register_asset "stylesheets/admin.scss", :admin')
   end
+
+  # A key referenced from JS but missing from the locale renders as the literal
+  # "[en.js.discourse_index_now.admin.whatever]" in the admin panel, which no
+  # test caught until it was noticed by eye. Both shipped locales are checked,
+  # so an English-only addition fails here rather than on a zh_CN forum.
+  it "ships every admin translation the frontend asks for" do
+    root = Rails.root.join("plugins/discourse-indexnow")
+
+    referenced =
+      Dir[root.join("{admin/assets,assets}/javascripts/**/*.{js,gjs}")]
+        .flat_map do |path|
+          # Greedy capture plus the lookahead skips interpolated keys such as
+          # `discourse_index_now.admin.status_${log.status}` outright, rather
+          # than recording the "status_" prefix as a key of its own.
+          File.read(path).scan(/discourse_index_now\.admin\.([a-z0-9_]+)(?![a-z0-9_$])/)
+        end
+        .flatten
+        .uniq
+
+    expect(referenced).to include("quota_hourly", "quota_count", "quota_frees_in")
+
+    %w[en zh_CN].each do |locale|
+      translations =
+        YAML.load_file(root.join("config/locales/client.#{locale}.yml")).dig(
+          locale,
+          "js",
+          "discourse_index_now",
+          "admin",
+        )
+
+      expect(translations.keys).to include(*referenced), "missing #{locale} keys: " \
+        "#{(referenced - translations.keys).join(', ')}"
+    end
+  end
 end

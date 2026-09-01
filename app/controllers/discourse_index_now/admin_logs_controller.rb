@@ -164,6 +164,7 @@ module DiscourseIndexNow
         today_failed_count: SubmissionLog.where(status: :failed).where("created_at >= ?", today).count,
         trend_7d: trend_7d,
         failure_breakdown: failure_breakdown,
+        usage: Throttle.usage,
         categories: Category.order(:name).pluck(:id, :name).map { |id, name| { id: id, name: name } },
       }
     end
