@@ -52,6 +52,30 @@ module DiscourseIndexNow
         end
       end
 
+      # Snapshot of the plugin's own rate counters for the admin page.
+      #
+      # The windows are fixed calendar buckets, not rolling: the keys are named
+      # by hour (YYYYMMDDHH) and by date (YYYYMMDD) in the Rails time zone, so
+      # both counters reset at the top of the clock hour and at midnight rather
+      # than N minutes after a given submission. The redis TTLs only stop stale
+      # keys accumulating; they are not what defines the window.
+      def usage
+        now = Time.zone.now
+
+        {
+          hourly_used: Discourse.redis.get(hourly_key(now)).to_i,
+          hourly_limit: SiteSetting.indexnow_hourly_limit.to_i,
+          hourly_resets_in: ((now.beginning_of_hour + 1.hour) - now).ceil,
+          daily_used: Discourse.redis.get(daily_key(now)).to_i,
+          daily_limit: SiteSetting.indexnow_daily_limit.to_i,
+          daily_resets_in: ((now.beginning_of_day + 1.day) - now).ceil,
+          # Set only when IndexNow itself answered 429 with a Retry-After, which
+          # is the one part of this that reflects the remote service's limits
+          # rather than the plugin's own.
+          throttled_for: throttled? ? retry_delay : nil,
+        }
+      end
+
       def next_window_delay
         now = Time.zone.now
         hourly_limit = SiteSetting.indexnow_hourly_limit.to_i

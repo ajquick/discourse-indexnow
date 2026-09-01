@@ -59,6 +59,47 @@ export default <template>
       />
     </section>
 
+    <section class="indexnow-quotas">
+      <h3>{{i18n "discourse_index_now.admin.quota_title"}}</h3>
+
+      {{#if @controller.throttledFor}}
+        <div class="alert alert-warning indexnow-quota-throttled">
+          {{i18n
+            "discourse_index_now.admin.quota_throttled"
+            duration=@controller.throttledFor
+          }}
+        </div>
+      {{/if}}
+
+      <div class="indexnow-quota-grid">
+        {{#each @controller.quotas as |quota|}}
+          <div class="indexnow-quota">
+            <div class="indexnow-quota-header">
+              <span>{{quota.label}}</span>
+              <span class="indexnow-quota-count">{{quota.countLabel}}</span>
+            </div>
+            <div
+              class="indexnow-quota-track"
+              role="progressbar"
+              aria-label={{quota.label}}
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuenow={{quota.percent}}
+              aria-valuetext={{quota.countLabel}}
+            >
+              <span
+                class="indexnow-quota-bar {{if quota.exhausted "indexnow-quota-bar--exhausted"}}"
+                style={{quota.style}}
+              ></span>
+            </div>
+            {{#if quota.resetLabel}}
+              <div class="indexnow-quota-reset">{{quota.resetLabel}}</div>
+            {{/if}}
+          </div>
+        {{/each}}
+      </div>
+    </section>
+
     <section class="indexnow-charts">
       <div class="indexnow-chart">
         <h3>{{i18n "discourse_index_now.admin.trend_7d"}}</h3>

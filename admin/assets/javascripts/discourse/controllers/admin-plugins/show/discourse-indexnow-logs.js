@@ -5,6 +5,7 @@ import { service } from "@ember/service";
 import { trustHTML } from "@ember/template";
 import { ajax } from "discourse/lib/ajax";
 import { popupAjaxError } from "discourse/lib/ajax-error";
+import { duration } from "discourse/lib/formatter";
 import { i18n } from "discourse-i18n";
 
 const PER_PAGE = 50;
@@ -95,6 +96,80 @@ export default class AdminPluginsShowDiscourseIndexNowLogsController extends Con
         `width: ${Math.max(2, Math.round((item.count / max) * 180))}px`
       ),
     }));
+  }
+
+  /**
+   * The plugin's own submission caps, shaped for the quota bars.
+   *
+   * These windows are fixed calendar buckets rather than rolling ones: the redis
+   * counters are keyed by clock hour and by date, so both reset on the boundary
+   * -- top of the hour, and midnight in the site's time zone -- not N minutes
+   * after the last submission. They are also the plugin's own caps; IndexNow
+   * publishes no public quota, and the only signal it sends is the 429 surfaced
+   * by `throttledFor` below.
+   */
+  get quotas() {
+    const usage = this.stats.usage || {};
+
+    return [
+      {
+        key: "hourly",
+        label: i18n("discourse_index_now.admin.quota_hourly"),
+        used: usage.hourly_used || 0,
+        limit: usage.hourly_limit || 0,
+        resetsIn: usage.hourly_resets_in,
+      },
+      {
+        key: "daily",
+        label: i18n("discourse_index_now.admin.quota_daily"),
+        used: usage.daily_used || 0,
+        limit: usage.daily_limit || 0,
+        resetsIn: usage.daily_resets_in,
+      },
+    ].map((quota) => this.buildQuotaBar(quota));
+  }
+
+  /**
+   * One quota bar.
+   *
+   * A limit of 0 does not mean unlimited: Throttle#available_capacity returns 0
+   * when either limit is <= 0, so nothing is submitted at all. Draw that as a
+   * full bar and say why, rather than as an empty one that reads as idle.
+   */
+  buildQuotaBar(quota) {
+    const blocked = quota.limit <= 0;
+    const percent = blocked
+      ? 100
+      : Math.min(100, Math.round((quota.used / quota.limit) * 100));
+
+    return {
+      ...quota,
+      blocked,
+      percent,
+      exhausted: blocked || quota.used >= quota.limit,
+      style: trustHTML(`width: ${percent}%`),
+      countLabel: blocked
+        ? i18n("discourse_index_now.admin.quota_blocked")
+        : i18n("discourse_index_now.admin.quota_count", {
+            used: quota.used,
+            limit: quota.limit,
+          }),
+      // A blocked window still rolls over, but it comes back just as blocked,
+      // so the countdown would only be noise.
+      resetLabel:
+        blocked || typeof quota.resetsIn !== "number"
+          ? null
+          : i18n("discourse_index_now.admin.quota_resets_in", {
+              duration: duration(quota.resetsIn),
+            }),
+    };
+  }
+
+  /** Set only while IndexNow itself has us backed off after answering 429. */
+  get throttledFor() {
+    const seconds = this.stats.usage?.throttled_for;
+
+    return typeof seconds === "number" ? duration(seconds) : null;
   }
 
   get atFirstPage() {
