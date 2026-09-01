@@ -16,6 +16,8 @@ zh_CN:
         key_accessible: "key.txt 可访问"
         pending: "检查中…"
         generate_key: "生成 key"
+        generate_key_confirm: "确定替换当前的 IndexNow key 吗？现有 key 会立即失效。搜索引擎需要重新获取并验证新的 key 文件，在此之前提交的 URL 可能会被拒绝。"
+        generate_key_confirm_button: "替换 key"
         login_required_disabled: "站点要求登录，IndexNow 已禁用。"
         filter_all: "全部"
         filter_pending: "待处理"

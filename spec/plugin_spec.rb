@@ -140,6 +140,24 @@ describe ::DiscourseIndexNow do
     ).to exist
   end
 
+  # Replacing a key is destructive out of band: the old one dies immediately and
+  # IndexNow answers 202 ("key validation pending") until it re-fetches
+  # /<key>.txt, dropping those URLs if validation fails. Rotation stays possible,
+  # but it asks first rather than firing on a stray click.
+  it "confirms before replacing an existing key" do
+    controller =
+      File.read(
+        Rails.root.join(
+          "plugins/discourse-indexnow/admin/assets/javascripts/discourse/controllers/admin-plugins/show/discourse-indexnow-logs.js",
+        ),
+      )
+
+    expect(controller).to include("deleteConfirm")
+    expect(controller).to include("discourse_index_now.admin.generate_key_confirm")
+    # ...and skips the prompt when there is no key to lose.
+    expect(controller).to match(/if \(!this\.stats\.api_key\)/)
+  end
+
   it "keeps the admin stylesheet out of the public forum bundle" do
     header = File.read(Rails.root.join("plugins/discourse-indexnow/plugin.rb"))
 
