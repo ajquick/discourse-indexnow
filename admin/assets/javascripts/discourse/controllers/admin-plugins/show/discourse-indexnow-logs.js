@@ -101,12 +101,13 @@ export default class AdminPluginsShowDiscourseIndexNowLogsController extends Con
   /**
    * The plugin's own submission caps, shaped for the quota bars.
    *
-   * These windows are fixed calendar buckets rather than rolling ones: the redis
-   * counters are keyed by clock hour and by date, so both reset on the boundary
-   * -- top of the hour, and midnight in the site's time zone -- not N minutes
-   * after the last submission. They are also the plugin's own caps; IndexNow
-   * publishes no public quota, and the only signal it sends is the 429 surfaced
-   * by `throttledFor` below.
+   * Both windows roll: the backend sums fine-grained buckets covering the last
+   * hour and the last day, so there is no boundary to count down to and no
+   * moment when a cap is handed back all at once. Capacity returns gradually,
+   * as the oldest counted submissions age out.
+   *
+   * These are the plugin's own caps. IndexNow publishes no quota; its only
+   * signal is the 429 surfaced by `throttledFor` below.
    */
   get quotas() {
     const usage = this.stats.usage || {};
@@ -117,14 +118,14 @@ export default class AdminPluginsShowDiscourseIndexNowLogsController extends Con
         label: i18n("discourse_index_now.admin.quota_hourly"),
         used: usage.hourly_used || 0,
         limit: usage.hourly_limit || 0,
-        resetsIn: usage.hourly_resets_in,
+        freesIn: usage.hourly_frees_in,
       },
       {
         key: "daily",
         label: i18n("discourse_index_now.admin.quota_daily"),
         used: usage.daily_used || 0,
         limit: usage.daily_limit || 0,
-        resetsIn: usage.daily_resets_in,
+        freesIn: usage.daily_frees_in,
       },
     ].map((quota) => this.buildQuotaBar(quota));
   }
@@ -138,6 +139,7 @@ export default class AdminPluginsShowDiscourseIndexNowLogsController extends Con
    */
   buildQuotaBar(quota) {
     const blocked = quota.limit <= 0;
+    const exhausted = blocked || quota.used >= quota.limit;
     const percent = blocked
       ? 100
       : Math.min(100, Math.round((quota.used / quota.limit) * 100));
@@ -145,8 +147,8 @@ export default class AdminPluginsShowDiscourseIndexNowLogsController extends Con
     return {
       ...quota,
       blocked,
+      exhausted,
       percent,
-      exhausted: blocked || quota.used >= quota.limit,
       style: trustHTML(`width: ${percent}%`),
       countLabel: blocked
         ? i18n("discourse_index_now.admin.quota_blocked")
@@ -154,14 +156,15 @@ export default class AdminPluginsShowDiscourseIndexNowLogsController extends Con
             used: quota.used,
             limit: quota.limit,
           }),
-      // A blocked window still rolls over, but it comes back just as blocked,
-      // so the countdown would only be noise.
-      resetLabel:
-        blocked || typeof quota.resetsIn !== "number"
-          ? null
-          : i18n("discourse_index_now.admin.quota_resets_in", {
-              duration: duration(quota.resetsIn),
-            }),
+      // Only worth saying once a cap is spent, and never for a limit of 0:
+      // nothing ages out of a window that admits nothing, so there is no
+      // countdown to offer -- an admin has to raise the setting.
+      freesLabel:
+        exhausted && !blocked && typeof quota.freesIn === "number"
+          ? i18n("discourse_index_now.admin.quota_frees_in", {
+              duration: duration(quota.freesIn),
+            })
+          : null,
     };
   }
 

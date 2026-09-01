@@ -92,8 +92,8 @@ export default <template>
                 style={{quota.style}}
               ></span>
             </div>
-            {{#if quota.resetLabel}}
-              <div class="indexnow-quota-reset">{{quota.resetLabel}}</div>
+            {{#if quota.freesLabel}}
+              <div class="indexnow-quota-frees">{{quota.freesLabel}}</div>
             {{/if}}
           </div>
         {{/each}}

@@ -158,7 +158,7 @@ describe ::DiscourseIndexNow do
         .flatten
         .uniq
 
-    expect(referenced).to include("quota_hourly", "quota_count", "quota_resets_in")
+    expect(referenced).to include("quota_hourly", "quota_count", "quota_frees_in")
 
     %w[en zh_CN].each do |locale|
       translations =

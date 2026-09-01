@@ -56,8 +56,8 @@ describe DiscourseIndexNow::AdminLogsController, type: :request do
       expect(usage["daily_used"]).to eq(5)
       expect(usage["hourly_limit"]).to eq(SiteSetting.indexnow_hourly_limit)
       expect(usage["daily_limit"]).to eq(SiteSetting.indexnow_daily_limit)
-      expect(usage["hourly_resets_in"]).to be > 0
-      expect(usage["daily_resets_in"]).to be > 0
+      expect(usage["hourly_window"]).to eq(3600)
+      expect(usage["daily_window"]).to eq(86_400)
     end
 
     it "returns a pending state without waiting for a cold-cache probe" do
