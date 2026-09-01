@@ -11,7 +11,7 @@ const PER_PAGE = 50;
 const TREND_DAY_WIDTH = 40;
 const TREND_BAR_HEIGHT = 72;
 
-export default class AdminPluginsShowDiscourseIndexNowController extends Controller {
+export default class AdminPluginsShowDiscourseIndexNowLogsController extends Controller {
   @service dialog;
 
   @tracked data = null;

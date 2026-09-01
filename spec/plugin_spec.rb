@@ -80,47 +80,52 @@ describe ::DiscourseIndexNow do
     expect(header).to include("# url: https://github.com/imlotso/discourse-indexnow")
   end
 
+  MAIN_BUNDLE = "plugins/discourse-indexnow/assets/javascripts/discourse"
+
   it "nests the logs route under core's adminPlugins.show resource" do
-    route_map =
-      File.read(
-        Rails.root.join(
-          "plugins/discourse-indexnow/admin/assets/javascripts/discourse/admin-indexnow-route-map.js",
-        ),
-      )
+    route_map = File.read(Rails.root.join("#{MAIN_BUNDLE}/admin-indexnow-route-map.js"))
 
     # Discourse reads only `resource` and `map` from a route map aimed at an
-    # existing resource (see mapRoutes in frontend/discourse/app/mapping-router.js:
-    # `extras.forEach` looks up `extra.resource` and calls `extra.map`). The
-    # `path` key is inert here, so what matters is the resource and the child
-    # route -- together they put the page at /admin/plugins/:plugin_id/logs and
-    # name it adminPlugins.show.discourse-indexnow.
+    # existing resource (mapRoutes in frontend/discourse/app/mapping-router.js
+    # looks up `extra.resource` and calls `extra.map`); `path` is inert here.
     expect(route_map).to include('resource: "admin.adminPlugins.show"')
-    expect(route_map).to include('this.route("discourse-indexnow", { path: "logs" })')
+    expect(route_map).to include('this.route("discourse-indexnow-logs", { path: "logs" })')
   end
 
-  # Core's adminPlugins.show.index route unconditionally replaceWith()s the first
-  # non-settings link in the plugin's config nav. If that nav entry is registered
-  # while its route is not, every visit to the plugin's admin page throws
-  # "There is no route named ..." and Ember retries, growing the DOM until the
-  # browser tab dies.
-  #
-  # mapRoutes() skips a `resource:` route map silently when
-  # tree.findPath("admin.adminPlugins.show") misses, so the route map has to load
-  # in the same bundle as the nav entry that points at it. Both live under admin/,
-  # which is loaded in lockstep with core's admin bundle that defines that node.
-  it "keeps the nav entry and the route map it points at in the same bundle" do
-    admin_bundle = "plugins/discourse-indexnow/admin/assets/javascripts/discourse"
+  # Every bundled plugin with a working admin page suffixes its child route
+  # (discourse-rss-polling-feeds, discourse-sitemap-autolink-overview). Naming the
+  # route after the plugin id was this plugin's only structural difference from
+  # them. The URL is unaffected -- that comes from `path`.
+  it "does not name the child route after the plugin id" do
+    route_map = File.read(Rails.root.join("#{MAIN_BUNDLE}/admin-indexnow-route-map.js"))
 
-    expect(Rails.root.join("#{admin_bundle}/admin-indexnow-route-map.js")).to exist
+    expect(route_map).not_to include('this.route("discourse-indexnow"')
+  end
+
+  # Core replaceWith()s the first non-settings nav entry unconditionally, so a nav
+  # entry whose route is missing throws on every visit to the plugin's admin page
+  # and Ember retries, growing the DOM until the browser tab dies. mapRoutes()
+  # drops a `resource:` map silently when tree.findPath("admin.adminPlugins.show")
+  # misses, so registration cannot be assumed to have worked: the initializer has
+  # to confirm the route resolves before advertising a tab for it.
+  it "only advertises the logs tab once the router resolves the route" do
+    initializer =
+      File.read(
+        Rails.root.join("#{MAIN_BUNDLE}/initializers/indexnow-admin-plugin-configuration-nav.js"),
+      )
+
+    expect(initializer).to include("routeExists")
+    expect(initializer).to include("recognize")
+    expect(initializer).to include("routeWillChange")
+  end
+
+  # Both files ship in the main bundle, matching discourse-rss-polling and
+  # discourse-sitemap-autolink.
+  it "ships the route map and nav entry where the other plugins do" do
+    expect(Rails.root.join("#{MAIN_BUNDLE}/admin-indexnow-route-map.js")).to exist
     expect(
-      Rails.root.join(
-        "#{admin_bundle}/initializers/indexnow-admin-plugin-configuration-nav.js",
-      ),
+      Rails.root.join("#{MAIN_BUNDLE}/initializers/indexnow-admin-plugin-configuration-nav.js"),
     ).to exist
-
-    # Nothing may remain in the main bundle: a nav entry shipped to the forum
-    # bundle can outlive the admin-only route map it references.
-    expect(Dir.glob(Rails.root.join("plugins/discourse-indexnow/assets/javascripts/**/*"))).to be_empty
   end
 
   it "keeps the admin stylesheet out of the public forum bundle" do
