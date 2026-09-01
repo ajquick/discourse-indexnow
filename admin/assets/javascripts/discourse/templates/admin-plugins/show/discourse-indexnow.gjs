@@ -32,8 +32,10 @@ export default <template>
 
       <div class="indexnow-key-status">
         <strong>{{i18n "discourse_index_now.admin.key_accessible"}}:</strong>
-        <span class="indexnow-key-dot indexnow-key-{{if @controller.stats.key_accessible "accessible" "unavailable"}}"></span>
-        {{#if @controller.stats.key_accessible}}
+        <span class="indexnow-key-dot indexnow-key-{{@controller.stats.key_accessibility_status}}"></span>
+        {{#if @controller.stats.key_accessibility_pending}}
+          {{i18n "discourse_index_now.admin.pending"}}
+        {{else if @controller.stats.key_accessible}}
           {{i18n "discourse_index_now.admin.yes"}}
         {{else}}
           {{i18n "discourse_index_now.admin.no"}}
