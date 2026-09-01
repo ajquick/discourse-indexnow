@@ -16,6 +16,8 @@ en:
         key_accessible: "key.txt accessible"
         pending: "Checking…"
         generate_key: "Generate key"
+        generate_key_confirm: "Replace the current IndexNow key? The existing key stops working immediately. Search engines have to fetch and validate the new key file before submissions are accepted again, and URLs submitted in the meantime can be rejected."
+        generate_key_confirm_button: "Replace key"
         login_required_disabled: "IndexNow is disabled because the whole site requires login."
         filter_all: "All"
         filter_pending: "Pending"

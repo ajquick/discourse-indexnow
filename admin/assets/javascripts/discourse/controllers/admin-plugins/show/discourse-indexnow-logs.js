@@ -253,8 +253,33 @@ export default class AdminPluginsShowDiscourseIndexNowLogsController extends Con
     await this.load();
   }
 
+  /**
+   * Replacing a key is a legitimate thing to want, but it is destructive in a way
+   * the button does not look, so it asks first.
+   *
+   * The old key stops working the moment this returns, and IndexNow validates
+   * keys out of band: a submission whose key it has not yet re-fetched from
+   * /<key>.txt comes back 202 ("key validation pending") rather than 200, and
+   * those URLs are dropped if that validation then fails. So an accidental
+   * rotation does not merely change a string, it can silently cost indexing until
+   * search engines catch up.
+   *
+   * Nothing is at stake when no key is set yet, so that case skips the prompt.
+   */
   @action
-  async generateKey() {
+  generateKey() {
+    if (!this.stats.api_key) {
+      return this.rotateKey();
+    }
+
+    this.dialog.deleteConfirm({
+      message: i18n("discourse_index_now.admin.generate_key_confirm"),
+      confirmButtonLabel: "discourse_index_now.admin.generate_key_confirm_button",
+      didConfirm: () => this.rotateKey(),
+    });
+  }
+
+  async rotateKey() {
     try {
       this.loading = true;
       await ajax(
