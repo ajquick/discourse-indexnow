@@ -238,33 +238,95 @@ describe DiscourseIndexNow::SubmissionService do
   end
 
   describe "#handle_category_updated" do
-    it "fails pending logs when a category becomes restricted" do
-      described_class.enqueue(topic)
+    # The fan-out itself is deferred: walking every topic in a category inline would
+    # run inside the admin's own request. The handler's job is only to enqueue.
+    it "defers the fan-out to a background job when a category becomes restricted" do
       category.update!(read_restricted: true)
 
-      expect(DiscourseIndexNow::SubmissionLog.where(url: topic.url)).to all(be_failed)
+      expect(Jobs).to have_received(:enqueue).with(
+        Jobs::DiscourseIndexNow::ResubmitTopics,
+        category_id: category.id,
+        mode: "revoke",
+        trigger_reason: "category_changed",
+      )
     end
 
-    it "enqueues public topics when a category becomes public" do
+    it "defers the fan-out to a background job when a category becomes public" do
       restricted = Fabricate(:category, read_restricted: true)
-      Fabricate(:topic, category: restricted)
       restricted.update!(read_restricted: false)
 
-      expect(DiscourseIndexNow::SubmissionLog.count).to eq(1)
-      expect(DiscourseIndexNow::SubmissionLog.first.trigger_reason).to eq("category_changed")
+      expect(Jobs).to have_received(:enqueue).with(
+        Jobs::DiscourseIndexNow::ResubmitTopics,
+        category_id: restricted.id,
+        mode: "submit",
+        trigger_reason: "category_changed",
+      )
+    end
+
+    it "does not enqueue anything when read_restricted did not change" do
+      category.update!(name: "a different name")
+
+      expect(Jobs).not_to have_received(:enqueue).with(
+        Jobs::DiscourseIndexNow::ResubmitTopics,
+        any_args,
+      )
     end
   end
 
   describe "#handle_tag_updated" do
-    it "resubmits topics carrying the tag" do
+    it "defers the fan-out to a background job" do
+      tag = Fabricate(:tag)
+      tag.update!(name: "renamed-tag")
+
+      expect(Jobs).to have_received(:enqueue).with(
+        Jobs::DiscourseIndexNow::ResubmitTopics,
+        tag_id: tag.id,
+        mode: "submit",
+        trigger_reason: "edited",
+      )
+    end
+  end
+
+  describe "#resubmit_topics" do
+    it "fails pending logs for a category that became restricted" do
+      described_class.enqueue(topic)
+
+      described_class.resubmit_topics(category_id: category.id, mode: "revoke")
+
+      expect(DiscourseIndexNow::SubmissionLog.where(url: topic.url)).to all(be_failed)
+    end
+
+    it "submits every eligible topic in a category" do
+      described_class.resubmit_topics(category_id: category.id, trigger_reason: :category_changed)
+
+      expect(DiscourseIndexNow::SubmissionLog.pluck(:url)).to contain_exactly(topic.url)
+      expect(DiscourseIndexNow::SubmissionLog.first.trigger_reason).to eq("category_changed")
+    end
+
+    it "submits every topic carrying a tag" do
       tag = Fabricate(:tag)
       topic.tags << tag
-      Discourse.redis.del(described_class.debounce_key(topic.id))
 
-      described_class.handle_tag_updated(tag)
+      described_class.resubmit_topics(tag_id: tag.id, trigger_reason: :edited)
 
-      expect(DiscourseIndexNow::SubmissionLog.count).to eq(1)
+      expect(DiscourseIndexNow::SubmissionLog.pluck(:url)).to contain_exactly(topic.url)
       expect(DiscourseIndexNow::SubmissionLog.first.locale).to be_nil
+    end
+
+    # One batch of URLs, not one submission job per topic.
+    it "collapses a whole category into a single submission batch" do
+      4.times { Fabricate(:topic, category: category) }
+
+      described_class.resubmit_topics(category_id: category.id)
+
+      expect(DiscourseIndexNow::SubmissionLog.count).to eq(5)
+      expect(DiscourseIndexNow::SubmissionLog.distinct.count(:batch_id)).to eq(1)
+    end
+
+    it "does nothing without a category or tag" do
+      expect { described_class.resubmit_topics }.not_to change {
+        DiscourseIndexNow::SubmissionLog.count
+      }
     end
   end
 
