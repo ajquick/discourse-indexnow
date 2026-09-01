@@ -16,7 +16,7 @@ discourse_index_now:
   indexnow_submit_on_reply:
     default: false
     client: false
-  indexnow_topic_cooldown_minutes:
+  indexnow_url_cooldown_minutes:
     default: 1
     min: 0
     client: false
