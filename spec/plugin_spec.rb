@@ -89,13 +89,25 @@ describe ::DiscourseIndexNow do
     # existing resource (mapRoutes in frontend/discourse/app/mapping-router.js
     # looks up `extra.resource` and calls `extra.map`); `path` is inert here.
     expect(route_map).to include('resource: "admin.adminPlugins.show"')
-    expect(route_map).to include('this.route("discourse-indexnow-logs", { path: "logs" })')
+    expect(route_map).to include('this.route("discourse-indexnow-logs", { path: "indexnow-logs" })')
   end
 
-  # Every bundled plugin with a working admin page suffixes its child route
-  # (discourse-rss-polling-feeds, discourse-sitemap-autolink-overview). Naming the
-  # route after the plugin id was this plugin's only structural difference from
-  # them. The URL is unaffected -- that comes from `path`.
+  # adminPlugins.show is mounted at /plugins/:plugin_id, so a child route's path is
+  # claimed across the whole site rather than per plugin: `path: "logs"` matches
+  # /admin/plugins/ANY_PLUGIN/logs. When two installed plugins claim the same path
+  # the loser's route is dropped, which is what happened against
+  # discourse-sitemap-autolink (whose logs page also used `path: "logs"`) --
+  # IndexNow's route vanished and core then replaceWith()'d a route that no longer
+  # existed. Both the path and the route name have to be plugin-scoped.
+  it "scopes the child route path so it cannot collide with another plugin" do
+    route_map = File.read(Rails.root.join("#{MAIN_BUNDLE}/admin-indexnow-route-map.js"))
+
+    # Match the route call, not prose: the comment above it quotes `path: "logs"`
+    # as the thing being avoided.
+    expect(route_map).to match(/this\.route\("discourse-indexnow-logs", \{ path: "indexnow-logs" \}\)/)
+    expect(route_map).not_to match(/this\.route\([^)]*\{ path: "logs" \}\)/)
+  end
+
   it "does not name the child route after the plugin id" do
     route_map = File.read(Rails.root.join("#{MAIN_BUNDLE}/admin-indexnow-route-map.js"))
 

@@ -30,7 +30,7 @@ describe "Discourse IndexNow logs routes", type: :request do
   end
 
   it "renders the admin HTML shell for direct visits and hard refreshes" do
-    get "/admin/plugins/discourse-indexnow/logs"
+    get "/admin/plugins/discourse-indexnow/indexnow-logs"
 
     expect(response.status).to eq(200)
     expect(response.media_type).to eq("text/html")

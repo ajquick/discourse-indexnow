@@ -23,7 +23,7 @@ Discourse::Application.routes.append do
   # take over routing. `format: false` keeps this from also matching the .json API
   # paths below.
   scope format: false, constraints: ::StaffConstraint.new do
-    get "/admin/plugins/discourse-indexnow/logs" => "admin/plugins#index"
+    get "/admin/plugins/discourse-indexnow/indexnow-logs" => "admin/plugins#index"
   end
 
   # JSON management API.
