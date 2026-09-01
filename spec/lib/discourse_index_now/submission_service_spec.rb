@@ -14,11 +14,11 @@ describe DiscourseIndexNow::SubmissionService do
     SiteSetting.indexnow_submit_on_edit = true
     SiteSetting.login_required = false
     SiteSetting.indexnow_excluded_tag_names = ""
-    Discourse.redis.del(described_class.debounce_key(topic.id))
+    Discourse.redis.del(described_class.debounce_key(topic.url))
     allow(Jobs).to receive(:enqueue)
   end
 
-  after { Discourse.redis.del(described_class.debounce_key(topic.id)) }
+  after { Discourse.redis.del(described_class.debounce_key(topic.url)) }
 
   describe "#handle_post_created" do
     it "creates one log per URL in a localized batch" do
@@ -93,6 +93,94 @@ describe DiscourseIndexNow::SubmissionService do
     end
   end
 
+  describe "replies" do
+    fab!(:reply) { Fabricate(:post, topic: topic, post_number: 2) }
+
+    it "ignores replies by default" do
+      expect { described_class.handle_post_created(reply) }.not_to change(
+        DiscourseIndexNow::SubmissionLog,
+        :count,
+      )
+    end
+
+    it "submits the topic for a reply once enabled" do
+      SiteSetting.indexnow_submit_on_reply = true
+
+      described_class.handle_post_created(reply)
+
+      expect(DiscourseIndexNow::SubmissionLog.pluck(:url)).to contain_exactly(topic.url)
+      expect(DiscourseIndexNow::SubmissionLog.first.trigger_reason).to eq("replied")
+    end
+
+    it "still submits the first post as created, not replied" do
+      SiteSetting.indexnow_submit_on_reply = true
+
+      described_class.handle_post_created(post)
+
+      expect(DiscourseIndexNow::SubmissionLog.first.trigger_reason).to eq("created")
+    end
+  end
+
+  describe "url cooldown" do
+    fab!(:reply) { Fabricate(:post, topic: topic, post_number: 2) }
+
+    before { SiteSetting.indexnow_submit_on_reply = true }
+
+    # Replies to the same crawler page collapse into one submission per window.
+    it "collapses repeated activity on one page into a single submission" do
+      SiteSetting.indexnow_url_cooldown_minutes = 1440
+
+      3.times { described_class.handle_post_created(reply) }
+      described_class.handle_post_edited(post, false)
+
+      expect(DiscourseIndexNow::SubmissionLog.count).to eq(1)
+    end
+
+    # ...but a reply that rolls the topic onto a new crawler page is a new URL,
+    # so it goes out immediately rather than waiting behind the previous page.
+    it "submits a new page straight away while the previous page is cooling down" do
+      SiteSetting.indexnow_url_cooldown_minutes = 1440
+      described_class.handle_post_created(reply)
+
+      later = Fabricate(:post, topic: topic, post_number: TopicView.chunk_size + 5)
+      described_class.handle_post_created(later)
+
+      expect(DiscourseIndexNow::SubmissionLog.order(:id).pluck(:url)).to eq(
+        [topic.url, "#{topic.url}?page=2"],
+      )
+    end
+
+    it "sets the cooldown to the configured length" do
+      SiteSetting.indexnow_url_cooldown_minutes = 1440
+
+      described_class.handle_post_created(reply)
+
+      expect(Discourse.redis.ttl(described_class.debounce_key(topic.url))).to be > 86_000
+    end
+
+    it "does not gate submissions when the cooldown is zero" do
+      SiteSetting.indexnow_url_cooldown_minutes = 0
+      described_class.handle_post_created(reply)
+      # Settle the first log so the pending-URL guard is not what is being measured.
+      DiscourseIndexNow::SubmissionLog.update_all(
+        status: DiscourseIndexNow::SubmissionLog.statuses[:success],
+      )
+
+      described_class.handle_post_created(reply)
+
+      expect(DiscourseIndexNow::SubmissionLog.count).to eq(2)
+    end
+
+    it "lets a deletion through even while the topic is cooling down" do
+      SiteSetting.indexnow_url_cooldown_minutes = 1440
+      described_class.handle_post_created(reply)
+
+      described_class.enqueue_deleted_topic(topic)
+
+      expect(DiscourseIndexNow::SubmissionLog.where(trigger_reason: :deleted)).to be_present
+    end
+  end
+
   describe "#handle_post_edited" do
     it "does not submit ordinary non-first-post edits" do
       reply = Fabricate(:post, topic: topic, post_number: 2)
@@ -118,7 +206,7 @@ describe DiscourseIndexNow::SubmissionService do
       described_class.enqueue(topic)
 
       expect(DiscourseIndexNow::SubmissionLog.count).to eq(1)
-      expect(Discourse.redis.get(described_class.debounce_key(topic.id))).to eq("1")
+      expect(Discourse.redis.get(described_class.debounce_key(topic.url))).to eq("1")
     end
 
     it "skips a topic in a read-restricted category" do
